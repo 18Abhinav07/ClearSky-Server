@@ -5,7 +5,7 @@ describe('Device Validation Service', () => {
   test('should validate correct device registration', () => {
     const request: DeviceRegistrationRequest = {
       city_id: 'delhi',
-      station_id: 'delhi_chandni_chowk_iitm',
+      station_id: 'delhi_chandni_chowk_iitm_11603',
       sensor_types: ['CO', 'PM2.5']
     };
 
@@ -16,7 +16,7 @@ describe('Device Validation Service', () => {
   test('should reject invalid city', () => {
     const request: DeviceRegistrationRequest = {
       city_id: 'invalid_city',
-      station_id: 'delhi_station_1',
+      station_id: 'delhi_new_delhi_8118',
       sensor_types: ['CO2']
     };
 
@@ -40,7 +40,7 @@ describe('Device Validation Service', () => {
   test('should reject sensors not available at station', () => {
     const request: DeviceRegistrationRequest = {
       city_id: 'delhi',
-      station_id: 'delhi_new_delhi', // Only has PM2.5
+      station_id: 'delhi_new_delhi_8118', // Only has PM2.5
       sensor_types: ['CO', 'NO2'] // Not available at this station
     };
 
@@ -52,7 +52,7 @@ describe('Device Validation Service', () => {
   test('should accept sensor subset (degradation)', () => {
     const request: DeviceRegistrationRequest = {
       city_id: 'delhi',
-      station_id: 'delhi_chandni_chowk_iitm', // Has multiple sensors
+      station_id: 'delhi_chandni_chowk_iitm_11603', // Has multiple sensors
       sensor_types: ['CO', 'NO2'] // Subset
     };
 
@@ -63,7 +63,7 @@ describe('Device Validation Service', () => {
   test('should reject empty sensor types', () => {
     const request: DeviceRegistrationRequest = {
       city_id: 'delhi',
-      station_id: 'delhi_chandni_chowk_iitm',
+      station_id: 'delhi_chandni_chowk_iitm_11603',
       sensor_types: []
     };
 
@@ -75,7 +75,7 @@ describe('Device Validation Service', () => {
   test('should reject duplicate sensor types', () => {
     const request: DeviceRegistrationRequest = {
       city_id: 'delhi',
-      station_id: 'delhi_chandni_chowk_iitm',
+      station_id: 'delhi_chandni_chowk_iitm_11603',
       sensor_types: ['CO', 'CO', 'PM2.5']
     };
 

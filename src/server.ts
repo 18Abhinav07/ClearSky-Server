@@ -2,6 +2,7 @@ import mongoose from 'mongoose';
 import app from './app';
 import { connectDB } from '@/database/connection';
 import { connectRedis, disconnectRedis } from '@/database/redis.connection';
+import { startBatchProcessor } from '@/jobs/batch-processor.job';
 import dotenv from 'dotenv';
 import { logger } from '@/utils/logger';
 
@@ -18,6 +19,10 @@ async function startServer() {
     // Connect to Redis
     await connectRedis();
     logger.info('✓ Redis connected');
+
+    // Start batch processor cron job
+    startBatchProcessor();
+    logger.info('✓ Batch processor cron job started');
 
     // Start Express server
     const server = app.listen(PORT, () => {

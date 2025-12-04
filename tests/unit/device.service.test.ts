@@ -42,7 +42,7 @@ describe('Device Service', () => {
 
     const request: DeviceRegistrationRequest = {
       city_id: 'delhi',
-      station_id: 'delhi_chandni_chowk_iitm',
+      station_id: 'delhi_chandni_chowk_iitm_11603',
       sensor_types: ['CO', 'PM2.5'],
     };
 
@@ -59,7 +59,7 @@ describe('Device Service', () => {
 
     const request: DeviceRegistrationRequest = {
       city_id: 'delhi',
-      station_id: 'delhi_chandni_chowk_iitm',
+      station_id: 'delhi_chandni_chowk_iitm_11603',
       sensor_types: ['CO'],
     };
 

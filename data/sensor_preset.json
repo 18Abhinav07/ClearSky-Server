@@ -8,7 +8,7 @@
       "country": "India",
       "stations": [
         {
-          "station_id": "delhi_chandni_chowk_iitm",
+          "station_id": "delhi_chandni_chowk_iitm_11603",
           "station_name": "Chandni Chowk - IITM",
           "coordinates": {
             "latitude": 28.6506,
@@ -95,7 +95,7 @@
           ]
         },
         {
-          "station_id": "delhi_new_delhi",
+          "station_id": "delhi_new_delhi_8118",
           "station_name": "New Delhi",
           "coordinates": {
             "latitude": 28.6139,

@@ -30,13 +30,13 @@ describe('Config Service', () => {
   });
 
   test('should get station by ID', () => {
-    const station = getStationById('delhi_chandni_chowk_iitm');
+    const station = getStationById('delhi_chandni_chowk_iitm_11603');
     expect(station).not.toBeNull();
     expect(station?.station_name).toBeTruthy();
   });
 
   test('should get available sensors for station', () => {
-    const sensors = getAvailableSensors('delhi_chandni_chowk_iitm');
+    const sensors = getAvailableSensors('delhi_chandni_chowk_iitm_11603');
     expect(Array.isArray(sensors)).toBe(true);
     expect(sensors.length).toBeGreaterThan(0);
   });

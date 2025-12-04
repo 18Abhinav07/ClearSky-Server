@@ -6,13 +6,16 @@ export interface SensorInfo {
 }
 
 export interface StationConfig {
-  station_id: string;         // e.g., "delhi_station_1"
-  station_name: string;       // e.g., "Station 1 - Connaught Place"
+  station_id: string;         // e.g., "delhi_chandni_chowk_iitm_11603"
+  station_name: string;       // e.g., "Chandni Chowk - IITM"
   coordinates: {
     latitude: number;
     longitude: number;
   };
+  owner?: string;             // e.g., "Indian Institute of Tropical Meteorology"
+  provider?: string;          // e.g., "CPCB"
   available_sensors: SensorInfo[];
+  city_name?: string;         // Added for CSV loader compatibility
 }
 
 export interface CityConfig {
