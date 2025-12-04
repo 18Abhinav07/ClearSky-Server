@@ -12,6 +12,7 @@
     "start": "node dist/server.js",
     "test": "jest --coverage",
     "test:watch": "jest --watch",
+    "test:e2e": "ts-node -r tsconfig-paths/register scripts/test-e2e-flow.ts",
     "lint": "eslint . --ext .ts",
     "lint:fix": "eslint . --ext .ts --fix",
     "format": "prettier --write \"src/**/*.ts\"",
