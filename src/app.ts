@@ -23,6 +23,8 @@ app.use('/api/v1/devices', deviceRoutes);
 app.get('/health', (req, res) => {
   res.json({
     status: 'ok',
+  
+    // ToDo : Check the connection to the database
     database: 'not_checked', // In a real app, you would check the DB connection
     timestamp: new Date().toISOString(),
   });

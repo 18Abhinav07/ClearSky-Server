@@ -1,14 +1,14 @@
 import { Schema, model, Document } from 'mongoose';
 
 export interface IUser extends Document {
-  wallet_id: string;
+  walletAddress: string;
   devices: string[];
   createdAt?: Date;
   updatedAt?: Date;
 }
 
 const userSchema = new Schema<IUser>({
-  wallet_id: {
+  walletAddress: {
     type: String,
     required: true,
     unique: true,

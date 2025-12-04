@@ -4,7 +4,7 @@ declare global {
   namespace Express {
     interface Request {
       user?: {
-        wallet_id: string;
+        walletAddress: string;
         jti: string;
       };
     }

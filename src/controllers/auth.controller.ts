@@ -61,10 +61,10 @@ export const refreshToken = async (req: Request, res: Response): Promise<void> =
 };
 
 export const logout = async (req: Request, res: Response): Promise<void> => {
-    const wallet_id = req.user?.wallet_id;
+    const walletAddress = req.user?.walletAddress;
     const access_token = req.headers.authorization?.replace('Bearer ', '');
 
-    if (!wallet_id || !access_token) {
+    if (!walletAddress || !access_token) {
         res.status(401).json({
             success: false,
             error: { message: 'Unauthorized' },
@@ -73,7 +73,7 @@ export const logout = async (req: Request, res: Response): Promise<void> => {
     }
 
     try {
-        await logoutUser(wallet_id, access_token);
+        await logoutUser(walletAddress, access_token);
         res.status(200).json({
             success: true,
             message: 'Logged out successfully',

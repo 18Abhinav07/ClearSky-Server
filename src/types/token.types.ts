@@ -3,7 +3,7 @@
  * Short-lived token for API authentication
  */
 export interface AccessTokenPayload {
-  wallet_id: string;           // User's wallet address (lowercase)
+  walletAddress: string;           // User's wallet address (lowercase)
   token_type: 'access';        // Token type identifier
   jti: string;                 // JWT ID (unique token identifier)
   iat: number;                 // Issued at timestamp
@@ -15,7 +15,7 @@ export interface AccessTokenPayload {
  * Long-lived token for obtaining new access tokens
  */
 export interface RefreshTokenPayload {
-  wallet_id: string;           // User's wallet address (lowercase)
+  walletAddress: string;           // User's wallet address (lowercase)
   token_type: 'refresh';       // Token type identifier
   jti: string;                 // JWT ID (unique token identifier)
   iat: number;                 // Issued at timestamp

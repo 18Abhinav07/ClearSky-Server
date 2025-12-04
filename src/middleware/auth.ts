@@ -31,7 +31,7 @@ export const authenticate = async (
 
     // Attach user to request
     req.user = {
-      wallet_id: validation.payload!.wallet_id,
+      walletAddress: validation.payload!.walletAddress,
       jti: validation.payload!.jti,
     };
 
@@ -44,3 +44,6 @@ export const authenticate = async (
     });
   }
 };
+
+// Alias for better naming convention in routes
+export const protect = authenticate;

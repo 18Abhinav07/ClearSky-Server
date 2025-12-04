@@ -1,24 +1,15 @@
-import Redis from 'ioredis';
+import Redis, { RedisOptions } from 'ioredis';
 import dotenv from 'dotenv';
 
 dotenv.config();
 
-export interface RedisConfig {
-  host: string;
-  port: number;
-  password?: string;
-  db: number;
-  tls?: boolean;
-  maxRetriesPerRequest: number;
-  retryStrategy?: (times: number) => number | void;
-}
+export interface RedisConfig extends RedisOptions {}
 
 const defaultConfig: RedisConfig = {
   host: process.env.REDIS_HOST || 'localhost',
   port: parseInt(process.env.REDIS_PORT || '6379', 10),
   password: process.env.REDIS_PASSWORD,
   db: parseInt(process.env.REDIS_DB || '0', 10),
-  tls: process.env.REDIS_TLS_ENABLED === 'true',
   maxRetriesPerRequest: parseInt(process.env.REDIS_MAX_RETRIES || '3', 10),
   retryStrategy: (times: number) => {
     const delay = Math.min(times * 50, 2000);
