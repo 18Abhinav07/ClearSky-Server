@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { validateSession } from '@/services/auth.service';
+import { logger } from '@/utils/logger';
 
 export const authenticate = async (
   req: Request,
@@ -37,7 +38,7 @@ export const authenticate = async (
 
     next();
   } catch (error) {
-    console.error('Authentication error:', error);
+    logger.error('Authentication error:', error);
     res.status(401).json({
       success: false,
       error: { message: 'Authentication failed' },

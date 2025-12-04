@@ -214,12 +214,19 @@ class DiscordTransport extends Transport {
         embeds: [
           {
             title,
-            description: `**Message:**\n\`\`\`\n${info.message}\n\`\`\``,
+            description: `**Message:**\n\
+\
+${info.message}\
+\
+\
+`,
             color,
             fields: [
               {
                 name: "📍 Source",
-                value: `\`${info.logpath}\``, // Uses your custom path logic
+                value: `\
+${info.logpath}\
+`,
                 inline: true
               },
               {

@@ -1,5 +1,6 @@
 import Redis, { RedisOptions } from 'ioredis';
 import dotenv from 'dotenv';
+import { logger } from '@/utils/logger';
 
 dotenv.config();
 
@@ -27,15 +28,15 @@ export const connectRedis = async (config: RedisConfig = defaultConfig): Promise
   client = new Redis(config);
 
   client.on('connect', () => {
-    console.log('Redis connected');
+    logger.info('Redis connected');
   });
 
   client.on('error', (err) => {
-    console.error('Redis connection error:', err);
+    logger.error('Redis connection error:', err);
   });
 
   client.on('close', () => {
-    console.log('Redis connection closed');
+    logger.info('Redis connection closed');
   });
 
   return client;

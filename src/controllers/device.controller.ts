@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { registerDevice } from '@/services/device.service';
 import Device from '@/models/Device';
+import { logger } from '@/utils/logger';
 
 export const createDevice = async (req: Request, res: Response) => {
   const { deviceId, location, sensor } = req.body;
@@ -25,7 +26,7 @@ export const createDevice = async (req: Request, res: Response) => {
     if (error.message === 'DEVICE_LIMIT_REACHED') {
       return res.status(403).json({ success: false, error: { code: 'DEVICE_LIMIT_REACHED', message: 'Maximum device limit reached' } });
     }
-    console.error('Create device error:', error);
+    logger.error('Create device error:', error);
     res.status(500).json({ success: false, error: { message: 'Server error' } });
   }
 };
@@ -41,7 +42,7 @@ export const getDevices = async (req: Request, res: Response) => {
     const devices = await Device.find({ owner: user.walletAddress });
     res.json({ success: true, devices });
   } catch (error) {
-    console.error('Get devices error:', error);
+    logger.error('Get devices error:', error);
     res.status(500).json({ success: false, error: { message: 'Server error' } });
   }
 };

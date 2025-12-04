@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { authenticateUser, refreshAccessToken, logoutUser } from '@/services/auth.service';
+import { logger } from '@/utils/logger';
 
 export const login = async (req: Request, res: Response): Promise<void> => {
   const { wallet_address } = req.body;
@@ -19,7 +20,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       data: loginData,
     });
   } catch (error) {
-    console.error('Login error:', error);
+    logger.error('Login error:', error);
     res.status(500).json({
       success: false,
       error: { message: 'Server error' },
@@ -52,7 +53,7 @@ export const refreshToken = async (req: Request, res: Response): Promise<void> =
         });
         return;
     }
-    console.error('Token refresh error:', error);
+    logger.error('Token refresh error:', error);
     res.status(500).json({
       success: false,
       error: { message: 'Server error' },
@@ -79,7 +80,7 @@ export const logout = async (req: Request, res: Response): Promise<void> => {
             message: 'Logged out successfully',
         });
     } catch (error) {
-        console.error('Logout error:', error);
+        logger.error('Logout error:', error);
         res.status(500).json({
             success: false,
             error: { message: 'Server error' },

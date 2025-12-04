@@ -3,6 +3,7 @@ import app from './app';
 import { connectDB } from '@/database/connection';
 import { connectRedis, disconnectRedis } from '@/database/redis.connection';
 import dotenv from 'dotenv';
+import { logger } from '@/utils/logger';
 
 dotenv.config();
 
@@ -12,20 +13,20 @@ async function startServer() {
   try {
     // Connect to MongoDB
     await connectDB();
-    console.log('✓ MongoDB connected');
+    logger.info('✓ MongoDB connected');
 
     // Connect to Redis
     await connectRedis();
-    console.log('✓ Redis connected');
+    logger.info('✓ Redis connected');
 
     // Start Express server
     const server = app.listen(PORT, () => {
-      console.log(`✓ Server running on port ${PORT}`);
+      logger.info(`✓ Server running on port ${PORT}`);
     });
 
     // Graceful shutdown
     process.on('SIGINT', async () => {
-      console.log('\nShutting down gracefully...');
+      logger.info('\nShutting down gracefully...');
       server.close(async () => {
         await disconnectRedis();
         await mongoose.disconnect();
@@ -34,7 +35,7 @@ async function startServer() {
     });
 
   } catch (error) {
-    console.error('Failed to start server:', error);
+    logger.error('Failed to start server:', error);
     process.exit(1);
   }
 }

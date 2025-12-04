@@ -60,13 +60,9 @@ export const verifyAccessToken = async (token: string): Promise<TokenValidationR
 export const verifyRefreshToken = async (token: string): Promise<TokenValidationResult> => {
   try {
     const payload = jwt.verify(token, process.env.JWT_REFRESH_SECRET as Secret) as RefreshTokenPayload;
-    const revokedToken = await getRefreshToken(payload.jti);
-    
-    // Check if token is revoked (either success with revoked flag or error with TOKEN_REVOKED code)
-    if (!revokedToken.success && revokedToken.error?.code === 'TOKEN_REVOKED') {
-      return { valid: false, error: 'Token revoked' };
-    }
-    if (revokedToken.success && revokedToken.data?.revoked) {
+    const redisToken = await getRefreshToken(payload.jti);
+
+    if (!redisToken.success || redisToken.data?.revoked) {
       return { valid: false, error: 'Token revoked' };
     }
     
