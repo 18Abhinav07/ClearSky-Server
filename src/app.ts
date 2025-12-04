@@ -5,6 +5,7 @@ import dotenv from 'dotenv';
 import { errorHandler } from '@/middleware/errorHandler';
 import authRoutes from '@/routes/auth.routes';
 import deviceRoutes from '@/routes/device.routes';
+import configRoutes from '@/routes/config.routes';
 
 dotenv.config();
 
@@ -18,6 +19,7 @@ app.use(cors({ origin: process.env.ALLOWED_ORIGINS?.split(',') }));
 // Routes
 app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/devices', deviceRoutes);
+app.use('/api/v1/config', configRoutes);
 
 // Health check
 app.get('/health', (req, res) => {

@@ -1,15 +1,18 @@
 import { Router } from 'express';
-import { createDevice, getDevices } from '@/controllers/device.controller';
-import { protect } from '@/middleware/auth';
+import {
+  registerDevice,
+  getDevices,
+  deleteDevice
+} from '@/controllers/device.controller';
+import { authenticate } from '@/middleware/auth';
 
 const router = Router();
 
-router.route('/').post(protect, createDevice).get(protect, getDevices);
+// All device routes require authentication
+router.use(authenticate);
 
-// The guide mentions a DELETE route, but no controller logic is provided.
-// I will add a placeholder for it.
-router.route('/:deviceId').delete(protect, (req, res) => {
-  res.status(501).json({ success: false, error: { message: 'Not Implemented' } });
-});
+router.post('/register', registerDevice);
+router.get('/', getDevices);
+router.delete('/:device_id', deleteDevice);
 
 export default router;

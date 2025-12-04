@@ -1,55 +1,57 @@
 import { Schema, model, Document } from 'mongoose';
+import { IDevice, SensorMeta } from '@/types/device.types';
 
-export interface IDevice extends Document {
-  deviceId: string;
-  owner: string;
-  location: string;
-  sensor: string;
-  status: 'active' | 'inactive';
-  registeredAt: Date;
-  lastUpdated: Date;
-}
+const sensorMetaSchema = new Schema<SensorMeta>({
+  city: { type: String, required: true },
+  city_id: { type: String, required: true },
+  station: { type: String, required: true },
+  station_id: { type: String, required: true },
+  coordinates: {
+    latitude: { type: Number, required: true },
+    longitude: { type: Number, required: true }
+  },
+  sensor_types: [{ type: String, required: true }]
+}, { _id: false });
 
-const deviceSchema = new Schema<IDevice>({
-  deviceId: {
+const deviceSchema = new Schema<IDevice & Document>({
+  device_id: {
     type: String,
     required: true,
     unique: true,
-    index: true,
+    index: true
   },
-  owner: {
+  owner_id: {
     type: String,
     required: true,
-    lowercase: true,
-    index: true,
+    ref: 'User',
+    index: true
   },
-  location: {
-    type: String,
-    required: true,
-  },
-  sensor: {
-    type: String,
-    required: true,
+  sensor_meta: {
+    type: sensorMetaSchema,
+    required: true
   },
   status: {
     type: String,
     enum: ['active', 'inactive'],
-    default: 'active',
+    default: 'active'
   },
-  registeredAt: {
+  registered_at: {
     type: Date,
-    default: Date.now,
+    default: Date.now
   },
-  lastUpdated: {
+  last_updated: {
     type: Date,
-    default: Date.now,
-  },
+    default: Date.now
+  }
 }, {
-  timestamps: { createdAt: false, updatedAt: 'lastUpdated' }
+  timestamps: true
 });
 
-deviceSchema.index({ owner: 1, location: 1, sensor: 1 });
+// Indexes
+deviceSchema.index({ owner_id: 1, status: 1 });
+deviceSchema.index({ 'sensor_meta.city_id': 1 });
+deviceSchema.index({ 'sensor_meta.station_id': 1 });
 
-const Device = model<IDevice>('Device', deviceSchema);
+const Device = model<IDevice & Document>('Device', deviceSchema);
 
 export default Device;

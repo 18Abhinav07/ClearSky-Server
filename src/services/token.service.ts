@@ -4,7 +4,7 @@ import { TOKEN_CONFIG } from '@/config/constants';
 import { AccessTokenPayload, RefreshTokenPayload, TokenPair, DecodedToken } from '@/types/token.types';
 import { TokenValidationResult } from '@/types/auth.types';
 import { redisClient } from '@/redis/client';
-import { getRefreshToken } from '@/redis/token.repository';
+import * as tokenRepository from '@/redis/token.repository';
 
 export interface TokenService {
   generateAccessToken(walletAddress: string): Promise<string>;
@@ -60,9 +60,9 @@ export const verifyAccessToken = async (token: string): Promise<TokenValidationR
 export const verifyRefreshToken = async (token: string): Promise<TokenValidationResult> => {
   try {
     const payload = jwt.verify(token, process.env.JWT_REFRESH_SECRET as Secret) as RefreshTokenPayload;
-    const redisToken = await getRefreshToken(payload.jti);
+    const revokedToken = await tokenRepository.getRefreshToken(payload.jti);
 
-    if (!redisToken.success || redisToken.data?.revoked) {
+    if (!revokedToken.success || revokedToken.data?.revoked) {
       return { valid: false, error: 'Token revoked' };
     }
     

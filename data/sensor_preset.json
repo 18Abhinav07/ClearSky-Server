@@ -1,0 +1,117 @@
+{
+  "version": "1.0.0",
+  "last_updated": "2024-12-05T00:00:00Z",
+  "cities": [
+    {
+      "city_id": "delhi",
+      "city_name": "Delhi",
+      "country": "India",
+      "stations": [
+        {
+          "station_id": "delhi_chandni_chowk_iitm",
+          "station_name": "Chandni Chowk - IITM",
+          "coordinates": {
+            "latitude": 28.6506,
+            "longitude": 77.2303
+          },
+          "owner": "Indian Institute of Tropical Meteorology",
+          "provider": "CPCB",
+          "available_sensors": [
+            {
+              "sensor_type": "CO",
+              "unit": "µg/m³",
+              "description": "Carbon Monoxide mass"
+            },
+            {
+              "sensor_type": "CO_ppb",
+              "unit": "ppb",
+              "description": "Carbon Monoxide"
+            },
+            {
+              "sensor_type": "NO",
+              "unit": "ppb",
+              "description": "Nitric Oxide"
+            },
+            {
+              "sensor_type": "NO2",
+              "unit": "ppb",
+              "description": "Nitrogen Dioxide"
+            },
+            {
+              "sensor_type": "NO2_mass",
+              "unit": "µg/m³",
+              "description": "Nitrogen Dioxide mass"
+            },
+            {
+              "sensor_type": "NOX",
+              "unit": "ppb",
+              "description": "Nitrogen Oxides"
+            },
+            {
+              "sensor_type": "O3",
+              "unit": "µg/m³",
+              "description": "Ozone mass"
+            },
+            {
+              "sensor_type": "PM10",
+              "unit": "µg/m³",
+              "description": "Particulate Matter 10"
+            },
+            {
+              "sensor_type": "PM2.5",
+              "unit": "µg/m³",
+              "description": "Particulate Matter 2.5"
+            },
+            {
+              "sensor_type": "RH",
+              "unit": "%",
+              "description": "Relative Humidity"
+            },
+            {
+              "sensor_type": "SO2",
+              "unit": "ppb",
+              "description": "Sulfur Dioxide"
+            },
+            {
+              "sensor_type": "SO2_mass",
+              "unit": "µg/m³",
+              "description": "Sulfur Dioxide mass"
+            },
+            {
+              "sensor_type": "Temperature",
+              "unit": "°C",
+              "description": "Temperature"
+            },
+            {
+              "sensor_type": "Wind_Direction",
+              "unit": "degrees",
+              "description": "Wind Direction"
+            },
+            {
+              "sensor_type": "Wind_Speed",
+              "unit": "m/s",
+              "description": "Wind Speed"
+            }
+          ]
+        },
+        {
+          "station_id": "delhi_new_delhi",
+          "station_name": "New Delhi",
+          "coordinates": {
+            "latitude": 28.6139,
+            "longitude": 77.2090
+          },
+          "owner": "Unknown",
+          "provider": "Airnow",
+          "available_sensors": [
+            {
+              "sensor_type": "PM2.5",
+              "unit": "µg/m³",
+              "description": "Particulate Matter 2.5"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
