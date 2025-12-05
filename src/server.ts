@@ -3,6 +3,8 @@ import app from './app';
 import { connectDB } from '@/database/connection';
 import { connectRedis, disconnectRedis } from '@/database/redis.connection';
 import { startBatchProcessor } from '@/jobs/batch-processor.job';
+import { startVerificationJob } from '@/jobs/verifier.job';
+import { initializePinata } from '@/services/ipfs.service';
 import dotenv from 'dotenv';
 import { logger } from '@/utils/logger';
 
@@ -18,11 +20,23 @@ async function startServer() {
 
     // Connect to Redis
     await connectRedis();
-    logger.info('✓ Redis connected');
+    // Initialize Pinata for IPFS
+    if (process.env.PINATA_JWT) {
+      initializePinata();
+      logger.info('✓ Pinata IPFS client initialized');
+    } else {
+      logger.warn('⚠ PINATA_JWT not configured - verification will fail');
+    }
 
     // Start batch processor cron job
     startBatchProcessor();
     logger.info('✓ Batch processor cron job started');
+
+    // Start verification cron job
+    startVerificationJob();
+    logger.info('✓ Verification cron job started');
+
+    // Start Express serverocessor cron job started');
 
     // Start Express server
     const server = app.listen(PORT, () => {

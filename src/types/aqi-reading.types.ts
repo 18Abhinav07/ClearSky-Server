@@ -28,18 +28,23 @@ export interface ReadingMetadata {
 
 export interface ProcessingMetadata {
   picked_at?: Date;
+  picked_by?: string;
   processed_at?: Date;
   merkle_root?: string;
   content_hash?: string;
   ipfs_uri?: string;
   ipfs_hash?: string;
+  verified_at?: Date;
+  ai_prep_started_at?: Date;
   ip_asset_id?: string;
   license_terms_id?: string;
   child_ip_asset_id?: string;
   error?: string;
+  retry_count?: number;
+  failed_at?: Date;
 }
 
-export type ReadingStatus = 'PENDING' | 'PROCESSING' | 'MINTED' | 'DERIVED' | 'FAILED';
+export type ReadingStatus = 'PENDING' | 'PROCESSING' | 'VERIFIED' | 'DERIVING' | 'DERIVED' | 'MINTED' | 'FAILED';
 
 export interface IAQIReading {
   reading_id: string;
@@ -76,10 +81,12 @@ export interface DataIngestionResponse {
 
 // Cron Job Batch Result
 export interface BatchProcessingResult {
-  total_pending: number;
-  processed: number;
-  failed: number;
-  reading_ids: string[];
+  total_pending?: number;
+  processed_count: number;
+  failed_count: number;
+  skipped_count: number;
+  errors: Array<{ reading_id: string; error: string }>;
+  processing_time_ms: number;
 }
 
 // Validation Result

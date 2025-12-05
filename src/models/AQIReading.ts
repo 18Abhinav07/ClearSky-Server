@@ -27,15 +27,20 @@ const metaSchema = new Schema({
 
 const processingSchema = new Schema({
   picked_at: { type: Date },
+  picked_by: { type: String },
   processed_at: { type: Date },
   merkle_root: { type: String },
   content_hash: { type: String },
   ipfs_uri: { type: String },
   ipfs_hash: { type: String },
+  verified_at: { type: Date },
+  ai_prep_started_at: { type: Date },
   ip_asset_id: { type: String },
   license_terms_id: { type: String },
   child_ip_asset_id: { type: String },
-  error: { type: String }
+  error: { type: String },
+  retry_count: { type: Number, default: 0 },
+  failed_at: { type: Date }
 }, { _id: false });
 
 const aqiReadingSchema = new Schema<IAQIReading & Document>({
@@ -71,7 +76,7 @@ const aqiReadingSchema = new Schema<IAQIReading & Document>({
   },
   status: {
     type: String,
-    enum: ['PENDING', 'PROCESSING', 'MINTED', 'DERIVED', 'FAILED'],
+    enum: ['PENDING', 'PROCESSING', 'VERIFIED', 'DERIVING', 'DERIVED', 'MINTED', 'FAILED'],
     default: 'PENDING',
     index: true
   },

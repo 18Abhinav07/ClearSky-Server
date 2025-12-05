@@ -1,7 +1,7 @@
 import cron from 'node-cron';
-import { AQIReading } from '@/models/AQIReading';
+import AQIReading from '@/models/AQIReading';
 import { BatchProcessingResult } from '@/types/aqi-reading.types';
-import logger from '@/utils/logger';
+import { logger } from '@/utils/logger';
 
 /**
  * Process pending batches that are past their batch window end time

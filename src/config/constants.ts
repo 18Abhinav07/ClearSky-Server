@@ -23,3 +23,18 @@ export const TOKEN_CONFIG = {
 } as const;
 
 export const DEVICE_LIMIT = 3;
+
+// IPFS / Pinata Configuration
+export const IPFS_CONFIG = {
+  PINATA_JWT: process.env.PINATA_JWT || '',
+  GATEWAY_URL: process.env.IPFS_GATEWAY_URL || 'https://gateway.pinata.cloud',
+  MAX_RETRY_ATTEMPTS: parseInt(process.env.MAX_RETRY_ATTEMPTS || '3', 10),
+  RETRY_DELAY_MS: parseInt(process.env.RETRY_DELAY_MS || '5000', 10),
+} as const;
+
+// Verification Configuration
+export const VERIFICATION_CONFIG = {
+  MERKLE_HASH_ALGORITHM: process.env.MERKLE_HASH_ALGORITHM || 'sha256',
+  CONTENT_HASH_ALGORITHM: process.env.CONTENT_HASH_ALGORITHM || 'sha256',
+  MAX_BATCHES_PER_RUN: parseInt(process.env.MAX_BATCHES_PER_RUN || '10', 10),
+} as const;

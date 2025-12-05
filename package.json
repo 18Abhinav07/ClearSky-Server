@@ -33,6 +33,7 @@
   },
   "homepage": "https://github.com/18Abhinav07/ClearSky-Server#readme",
   "dependencies": {
+    "@pinata/sdk": "^2.1.0",
     "axios": "^1.13.2",
     "bcrypt": "^6.0.0",
     "cors": "^2.8.5",
@@ -44,6 +45,7 @@
     "helmet": "^8.1.0",
     "ioredis": "^5.8.2",
     "jsonwebtoken": "^9.0.2",
+    "merkletreejs": "^0.6.0",
     "mongoose": "^9.0.0",
     "uuid": "^13.0.0",
     "winston": "^3.18.3"
