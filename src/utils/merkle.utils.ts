@@ -29,7 +29,10 @@ export function buildMerkleTree(
   let readingIndex = 0;
 
   // Generate leaf hashes for all sensor readings
-  for (const [sensorType, values] of Object.entries(sensorData)) {
+  const sortedSensorTypes = Object.keys(sensorData).sort();
+
+  for (const sensorType of sortedSensorTypes) {
+    const values = sensorData[sensorType];
     if (!Array.isArray(values)) continue;
 
     for (let i = 0; i < values.length; i++) {

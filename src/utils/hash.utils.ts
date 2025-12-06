@@ -46,3 +46,12 @@ export function verifyContentHash(payload: any, expectedHash: string): boolean {
   const actualHash = computeContentHash(payload);
   return actualHash === expectedHash;
 }
+
+/**
+ * Compute SHA256 hash of a simple string.
+ * @param content - The string content to hash.
+ * @returns SHA256 hash as hex string.
+ */
+export const getDeterministicContentHash = (content: string): string => {
+  return crypto.createHash('sha256').update(content).digest('hex');
+};

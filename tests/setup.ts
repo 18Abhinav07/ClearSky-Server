@@ -3,6 +3,11 @@ import mongoose from 'mongoose';
 import { connectRedis, disconnectRedis } from '@/database/redis.connection';
 import RedisMock from 'ioredis-mock';
 
+// Mock uuid to avoid ESM import issues in Jest
+jest.mock('uuid', () => ({
+  v4: jest.fn(() => 'test-uuid-1234-5678-90ab-cdef'),
+}));
+
 let mongoServer: MongoMemoryServer;
 
 beforeAll(async () => {

@@ -36,6 +36,7 @@ export interface ProcessingMetadata {
   ipfs_hash?: string;
   verified_at?: Date;
   ai_prep_started_at?: Date;
+  derivative_id?: string;
   ip_asset_id?: string;
   license_terms_id?: string;
   child_ip_asset_id?: string;
@@ -44,7 +45,15 @@ export interface ProcessingMetadata {
   failed_at?: Date;
 }
 
-export type ReadingStatus = 'PENDING' | 'PROCESSING' | 'VERIFIED' | 'DERIVING' | 'DERIVED' | 'MINTED' | 'FAILED';
+export type ReadingStatus = 
+  | 'PENDING'
+  | 'PROCESSING'
+  | 'VERIFIED'
+  | 'PROCESSING_AI'
+  | 'DERIVED_INDIVIDUAL'
+  | 'COMPLETE'
+  | 'MINTED'
+  | 'FAILED';
 
 export interface IAQIReading {
   reading_id: string;

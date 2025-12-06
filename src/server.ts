@@ -4,6 +4,8 @@ import { connectDB } from '@/database/connection';
 import { connectRedis, disconnectRedis } from '@/database/redis.connection';
 import { startBatchProcessor } from '@/jobs/batch-processor.job';
 import { startVerificationJob } from '@/jobs/verifier.job';
+import { startDerivativeJob } from '@/jobs/derivative.job';
+import { startMetaDerivativeJob } from '@/jobs/meta-derivative.job';
 import { initializePinata } from '@/services/ipfs.service';
 import dotenv from 'dotenv';
 import { logger } from '@/utils/logger';
@@ -35,6 +37,14 @@ async function startServer() {
     // Start verification cron job
     startVerificationJob();
     logger.info('✓ Verification cron job started');
+
+    // Start derivative generation cron job
+    startDerivativeJob();
+    logger.info('✓ Derivative generation cron job started');
+
+    // Start meta-derivative generation cron job
+    startMetaDerivativeJob();
+    logger.info('✓ Meta-derivative generation cron job started');
 
     // Start Express serverocessor cron job started');
 

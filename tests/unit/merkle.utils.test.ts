@@ -48,9 +48,15 @@ describe('Merkle Tree Utils', () => {
         'NO2': [10, 12],
         'PM2.5': [35, 38]
       };
+      const timestamps = [
+        new Date('2024-01-01T12:00:00Z'),
+        new Date('2024-01-01T12:00:05Z'),
+        new Date('2024-01-01T12:00:10Z'),
+        new Date('2024-01-01T12:00:15Z'),
+      ];
 
-      const { root: root1 } = buildMerkleTree(sensorData);
-      const { root: root2 } = buildMerkleTree(sensorData);
+      const { root: root1 } = buildMerkleTree(sensorData, timestamps);
+      const { root: root2 } = buildMerkleTree(sensorData, timestamps);
 
       expect(root1).toBe(root2);
     });

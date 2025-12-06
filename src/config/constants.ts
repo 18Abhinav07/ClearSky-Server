@@ -38,3 +38,15 @@ export const VERIFICATION_CONFIG = {
   CONTENT_HASH_ALGORITHM: process.env.CONTENT_HASH_ALGORITHM || 'sha256',
   MAX_BATCHES_PER_RUN: parseInt(process.env.MAX_BATCHES_PER_RUN || '10', 10),
 } as const;
+
+// LLM Configuration
+export const LLM_CONFIG = {
+  PROVIDER: 'together-ai',
+  API_KEY: process.env.TOGETHER_API_KEY,
+  DAILY_MODEL: 'meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo',
+  MONTHLY_MODEL: 'meta-llama/Meta-Llama-3.1-405B-Instruct-Turbo',
+  TEMPERATURE_DAILY: 0.3,
+  TEMPERATURE_MONTHLY: 0.5,
+  MAX_TOKENS_DAILY: 1000,
+  MAX_TOKENS_MONTHLY: 2000,
+} as const;
