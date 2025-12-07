@@ -6,7 +6,8 @@ import Asset from '../models/Asset';
 import User from '../models/User';
 import { logger } from '../utils/logger';
 import { v4 as uuidv4 } from 'uuid';
-import { AQIReading } from '../models/AQIReading';
+import AQIReading from '../models/AQIReading';
+import { IAQIReading } from '../types/aqi-reading.types';
 
 // Platform configuration
 const PLATFORM_FEE_PERCENTAGE = 10; // 10% platform fee
@@ -71,7 +72,7 @@ export const listDerivatives = async (req: Request, res: Response) => {
                 logger.debug(`[MARKETPLACE] Found ${primitiveData.length} primitive readings for derivative ${deriv.derivative_id}`, {
                     derivative_id: deriv.derivative_id,
                     primitive_count: primitiveData.length,
-                    primitive_ids: JSON.stringify(primitiveData.map(p => p.reading_id))
+                    primitive_ids: JSON.stringify(primitiveData.map((p: IAQIReading) => p.reading_id))
                 });
 
                 return {
@@ -212,7 +213,7 @@ export const purchaseDerivative = async (req: Request, res: Response) => {
             primitive_readings: JSON.stringify(primitiveReadings)
         });
 
-        const originalOwnerWallet = primitiveReadings[0]?.device_owner || null;
+        const originalOwnerWallet = primitiveReadings[0]?.owner_id || null;
 
         logger.debug(`[MARKETPLACE:PURCHASE] Original owner identified`, {
             derivative_id: derivativeId,
@@ -536,7 +537,7 @@ export const bulkPurchaseDerivatives = async (req: Request, res: Response) => {
                 assets: successfulAssetIds,
             });
         } else {
-            buyer.assets.push(...successfulAssetIds);
+            buyer.assets.push(...successfulAssetIds.filter((id): id is string => id !== undefined));
         }
 
         await buyer.save();
