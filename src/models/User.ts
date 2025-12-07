@@ -3,6 +3,7 @@ import { Schema, model, Document } from 'mongoose';
 export interface IUser extends Document {
   walletAddress: string;
   devices: string[];
+  assets: string[]; // Array of asset_ids owned by the user
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -20,6 +21,10 @@ const userSchema = new Schema<IUser>({
     },
   },
   devices: {
+    type: [String],
+    default: [],
+  },
+  assets: {
     type: [String],
     default: [],
   },
