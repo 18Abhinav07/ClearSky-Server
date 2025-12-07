@@ -22,7 +22,7 @@ const metaSchema = new Schema({
   location: { type: locationMetaSchema, required: true },
   ingestion_count: { type: Number, default: 1 },
   last_ingestion: { type: Date, required: true },
-  data_points_count: { type: Schema.Types.Mixed }
+  data_points_count: { type: Object }
 }, { _id: false });
 
 const processingSchema = new Schema({
@@ -68,7 +68,7 @@ const aqiReadingSchema = new Schema<IAQIReading & Document>({
     required: true
   },
   sensor_data: {
-    type: Schema.Types.Mixed,
+    type: Object,
     required: true
   },
   meta: {
@@ -77,7 +77,7 @@ const aqiReadingSchema = new Schema<IAQIReading & Document>({
   },
   status: {
     type: String,
-    enum: ['PENDING', 'PROCESSING', 'VERIFIED', 'DERIVING', 'DERIVED', 'MINTED', 'FAILED'],
+    enum: ['PENDING', 'PROCESSING', 'VERIFIED', 'PROCESSING_AI', 'DERIVED_INDIVIDUAL', 'COMPLETE', 'MINTED', 'FAILED'],
     default: 'PENDING',
     index: true
   },

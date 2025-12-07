@@ -28,6 +28,11 @@ export interface IDerivative {
   processing: ProcessingMetadata;
   llm_metadata?: LLMMetadata;
 
+  // Story Protocol Fields
+  ip_id?: string;
+  token_id?: string;
+  is_minted: boolean;
+
   created_at: Date;
   updated_at: Date;
 }

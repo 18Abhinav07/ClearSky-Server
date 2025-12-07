@@ -76,6 +76,19 @@ const derivativeSchema = new Schema<IDerivative & Document>({
   llm_metadata: {
     type: llmMetadataSchema,
   },
+  ip_id: {
+    type: String,
+    index: true,
+  },
+  token_id: {
+    type: String,
+    index: true,
+  },
+  is_minted: {
+    type: Boolean,
+    default: false,
+    index: true,
+  },
 }, {
   timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' },
   toJSON: {

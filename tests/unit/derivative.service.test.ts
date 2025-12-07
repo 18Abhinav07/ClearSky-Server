@@ -67,7 +67,7 @@ describe('Derivative Service', () => {
     const createdDerivative = (derivativeRepository.createDerivative as jest.Mock).mock.calls[0][0];
     expect(createdDerivative.type).toBe('DAILY');
     expect(createdDerivative.content).toBe('# 📜 Mock Daily Log');
-    expect(createdDerivative.parent_data_ids).toEqual([ (mockReadings[0] as any)._id.toHexString() ]);
+    expect(createdDerivative.parent_data_ids).toEqual([mockReadings[0].reading_id]);
 
     // 3. Check that LLM metadata was saved correctly
     expect(createdDerivative.llm_metadata).toBeDefined();

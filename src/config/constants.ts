@@ -51,31 +51,24 @@ export const LLM_CONFIG = {
   MAX_TOKENS_MONTHLY: 2000,
 } as const;
 
-// Data Ingestion Configuration
-export const INGESTION_CONFIG = {
-  // Maximum files to process per cron run (to avoid overwhelming the system)
-  MAX_FILES_PER_RUN: parseInt(process.env.MAX_FILES_PER_RUN || '3', 10),
+// Story Protocol Configuration
+export const STORY_CONFIG = {
+  PRIVATE_KEY: process.env.STORY_PRIVATE_KEY || '',
+  PLATFORM_WALLET_PRIVATE_KEY: process.env.PLATFORM_WALLET_PRIVATE_KEY || '',
+  SPG_NFT_CONTRACT: process.env.STORY_SPG_NFT_CONTRACT || '',
+  LICENSE_TERMS_ID: process.env.LICENSE_TERMS_ID || '',
 } as const;
 
-// Cron Job Schedules Configuration
+// Cron Job Configuration
 export const CRON_CONFIG = {
-  // Data Ingestion: Reads CSV files from data/ folder and creates PENDING readings
-  // Default: Every 10 minutes
   DATA_INGESTION: process.env.CRON_DATA_INGESTION || '*/10 * * * *',
+  BATCH_PROCESSOR: process.env.CRON_BATCH_PROCESSOR || '*/20 * * * *',
+  VERIFIER: process.env.CRON_VERIFIER || '*/30 * * * *',
+  DERIVATIVE_INDIVIDUAL: process.env.CRON_DERIVATIVE_INDIVIDUAL || '*/15 * * * *',
+  DERIVATIVE_META: process.env.CRON_DERIVATIVE_META || '*/1 * * * *',
+} as const;
 
-  // Batch Processor: Marks PENDING → PROCESSING at top of hour
-  // Default: Every 2 minutes (for testing, change to '5 * * * *' for hourly)
-  BATCH_PROCESSOR: process.env.CRON_BATCH_PROCESSOR || '*/2 * * * *',
-
-  // Verifier: Processes PROCESSING → VERIFIED (Merkle + IPFS)
-  // Default: Every 4 minutes
-  VERIFIER: process.env.CRON_VERIFIER || '*/4 * * * *',
-
-  // Individual Derivative Generator: VERIFIED → DERIVED_INDIVIDUAL
-  // Default: Every 6 minutes (aligned with ingestion interval)
-  DERIVATIVE_INDIVIDUAL: process.env.CRON_DERIVATIVE_INDIVIDUAL || '*/6 * * * *',
-
-  // Meta Derivative Generator: Monthly aggregation
-  // Default: Every 8 minutes (for testing, change to '0 1 1 * *' for monthly)
-  DERIVATIVE_META: process.env.CRON_DERIVATIVE_META || '*/8 * * * *',
+// Data Ingestion Configuration
+export const INGESTION_CONFIG = {
+  MAX_FILES_PER_RUN: parseInt(process.env.MAX_FILES_PER_RUN || '10', 10),
 } as const;

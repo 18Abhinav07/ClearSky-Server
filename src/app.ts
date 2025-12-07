@@ -7,6 +7,7 @@ import authRoutes from '@/routes/auth.routes';
 import deviceRoutes from '@/routes/device.routes';
 import configRoutes from '@/routes/config.routes';
 import ingestRoutes from '@/routes/ingest.routes';
+import marketplaceRoutes from '@/routes/marketplace.routes';
 
 dotenv.config();
 
@@ -22,6 +23,7 @@ app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/devices', deviceRoutes);
 app.use('/api/v1/config', configRoutes);
 app.use('/api/v1', ingestRoutes);
+app.use('/api/v1/marketplace', marketplaceRoutes);
 
 // Health check
 app.get('/health', (req, res) => {

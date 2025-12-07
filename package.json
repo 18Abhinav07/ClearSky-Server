@@ -17,6 +17,8 @@
     "lint": "eslint . --ext .ts",
     "lint:fix": "eslint . --ext .ts --fix",
     "format": "prettier --write \"src/**/*.ts\"",
+    "story:create-nft-collection": "ts-node -r tsconfig-paths/register scripts/create-nft-collection.ts",
+    "story:register-license": "ts-node -r tsconfig-paths/register scripts/register-license.ts",
     "docker:up": "docker-compose up -d",
     "docker:down": "docker-compose down"
   },
@@ -34,6 +36,7 @@
   "homepage": "https://github.com/18Abhinav07/ClearSky-Server#readme",
   "dependencies": {
     "@pinata/sdk": "^2.1.0",
+    "@story-protocol/core-sdk": "^1.4.2",
     "axios": "^1.13.2",
     "bcrypt": "^6.0.0",
     "cors": "^2.8.5",
@@ -50,6 +53,7 @@
     "mongoose": "^9.0.0",
     "tiktoken": "^1.0.22",
     "uuid": "^13.0.0",
+    "viem": "^2.41.2",
     "winston": "^3.18.3"
   },
   "devDependencies": {
