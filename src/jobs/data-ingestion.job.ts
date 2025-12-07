@@ -4,12 +4,9 @@ import AQIReading from '@/models/AQIReading';
 import ProcessedFile from '@/models/ProcessedFile';
 import { loadStationCSVData } from '@/services/csv-data-loader.service';
 import { logger } from '@/utils/logger';
-import { CRON_CONFIG } from '@/config/constants';
+import { CRON_CONFIG, INGESTION_CONFIG } from '@/config/constants';
 import fs from 'fs';
 import path from 'path';
-
-// Maximum files to process per cron run (to avoid overwhelming the system)
-const MAX_FILES_PER_RUN = 3;
 
 interface IngestionResult {
   total_devices: number;
@@ -101,13 +98,14 @@ async function getUnprocessedFiles(stationId: string, dataFolder: string): Promi
     }
 
     // Limit to MAX_FILES_PER_RUN to process sequentially
-    const filesToProcess = unprocessedFiles.slice(0, MAX_FILES_PER_RUN);
+    const filesToProcess = unprocessedFiles.slice(0, INGESTION_CONFIG.MAX_FILES_PER_RUN);
 
     logger.info(`Found ${unprocessedFiles.length} unprocessed files for ${stationId}, processing ${filesToProcess.length} this run`, {
       total_files: allFiles.length,
       already_processed: processedFileNames.size,
       unprocessed: unprocessedFiles.length,
-      processing_now: filesToProcess.length
+      processing_now: filesToProcess.length,
+      max_files_per_run: INGESTION_CONFIG.MAX_FILES_PER_RUN
     });
 
     return filesToProcess;

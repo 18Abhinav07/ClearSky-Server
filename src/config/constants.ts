@@ -51,6 +51,12 @@ export const LLM_CONFIG = {
   MAX_TOKENS_MONTHLY: 2000,
 } as const;
 
+// Data Ingestion Configuration
+export const INGESTION_CONFIG = {
+  // Maximum files to process per cron run (to avoid overwhelming the system)
+  MAX_FILES_PER_RUN: parseInt(process.env.MAX_FILES_PER_RUN || '3', 10),
+} as const;
+
 // Cron Job Schedules Configuration
 export const CRON_CONFIG = {
   // Data Ingestion: Reads CSV files from data/ folder and creates PENDING readings
