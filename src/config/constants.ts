@@ -50,3 +50,26 @@ export const LLM_CONFIG = {
   MAX_TOKENS_DAILY: 1000,
   MAX_TOKENS_MONTHLY: 2000,
 } as const;
+
+// Cron Job Schedules Configuration
+export const CRON_CONFIG = {
+  // Data Ingestion: Reads CSV files from data/ folder and creates PENDING readings
+  // Default: Every 10 minutes
+  DATA_INGESTION: process.env.CRON_DATA_INGESTION || '*/10 * * * *',
+
+  // Batch Processor: Marks PENDING → PROCESSING at top of hour
+  // Default: Every 2 minutes (for testing, change to '5 * * * *' for hourly)
+  BATCH_PROCESSOR: process.env.CRON_BATCH_PROCESSOR || '*/2 * * * *',
+
+  // Verifier: Processes PROCESSING → VERIFIED (Merkle + IPFS)
+  // Default: Every 4 minutes
+  VERIFIER: process.env.CRON_VERIFIER || '*/4 * * * *',
+
+  // Individual Derivative Generator: VERIFIED → DERIVED_INDIVIDUAL
+  // Default: Every 6 minutes (aligned with ingestion interval)
+  DERIVATIVE_INDIVIDUAL: process.env.CRON_DERIVATIVE_INDIVIDUAL || '*/6 * * * *',
+
+  // Meta Derivative Generator: Monthly aggregation
+  // Default: Every 8 minutes (for testing, change to '0 1 1 * *' for monthly)
+  DERIVATIVE_META: process.env.CRON_DERIVATIVE_META || '*/8 * * * *',
+} as const;

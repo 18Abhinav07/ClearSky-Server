@@ -2,6 +2,7 @@ import cron from 'node-cron';
 import AQIReading from '@/models/AQIReading';
 import { BatchProcessingResult } from '@/types/aqi-reading.types';
 import { logger } from '@/utils/logger';
+import { CRON_CONFIG } from '@/config/constants';
 
 /**
  * Process pending batches that are past their batch window end time
@@ -27,6 +28,12 @@ export async function processPendingBatches(): Promise<BatchProcessingResult> {
     }).sort({ 'batch_window.end': 1 });
 
     logger.info(`Found ${pendingReadings.length} pending readings to process`);
+    logger.debug(`[BATCH_PROCESSOR] Query executed`, {
+      service: 'batch-processor',
+      query: { status: 'PENDING', batch_window_end_before: now },
+      found_count: pendingReadings.length,
+      reading_ids: pendingReadings.map(r => r.reading_id)
+    });
 
     for (const reading of pendingReadings) {
       try {
@@ -44,6 +51,20 @@ export async function processPendingBatches(): Promise<BatchProcessingResult> {
           device_id: reading.device_id,
           window: reading.batch_window,
           ingestion_count: reading.meta.ingestion_count
+        });
+
+        logger.debug(`[BATCH_PROCESSOR] Reading status updated`, {
+          service: 'batch-processor',
+          reading_id: reading.reading_id,
+          device_id: reading.device_id,
+          owner_id: reading.owner_id,
+          status_transition: 'PENDING → PROCESSING',
+          picked_at: now.toISOString(),
+          picked_by: 'batch-processor-cron',
+          batch_window: reading.batch_window,
+          sensor_data_summary: Object.keys(reading.sensor_data),
+          ingestion_count: reading.meta.ingestion_count,
+          total_data_points: reading.meta.data_points_count
         });
 
       } catch (error) {
@@ -81,12 +102,19 @@ export async function processPendingBatches(): Promise<BatchProcessingResult> {
 
 /**
  * Start the batch processor cron job
- * Runs every hour at minute 0 (e.g., 1:00, 2:00, 3:00...)
+ * Schedule is configurable via CRON_BATCH_PROCESSOR env variable
  */
 export function startBatchProcessor(): void {
-  // Run every hour at minute 0
-  cron.schedule('0 * * * *', async () => {
+  const schedule = CRON_CONFIG.BATCH_PROCESSOR;
+
+  cron.schedule(schedule, async () => {
     logger.info('Batch processor cron job started');
+    logger.debug(`[BATCH_PROCESSOR] Cron triggered`, {
+      service: 'batch-processor',
+      schedule,
+      triggered_at: new Date().toISOString()
+    });
+
     try {
       await processPendingBatches();
     } catch (error) {
@@ -96,5 +124,5 @@ export function startBatchProcessor(): void {
     }
   });
 
-  logger.info('Batch processor cron job scheduled (every hour at minute 0)');
+  logger.info(`Batch processor cron job scheduled: ${schedule}`);
 }

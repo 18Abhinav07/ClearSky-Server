@@ -32,11 +32,12 @@ export const generateDerivatives = async (readings: IAQIReading[]): Promise<void
 
       // 3. Save the new derivative to the database
       const readingObjectIds = dayReadings.map(r => new Types.ObjectId((r as any)._id));
+      const readingIds = dayReadings.map(r => r.reading_id); // Use reading_id for proper references
 
-      await DerivativeRepository.createDerivative({
+      const derivative = await DerivativeRepository.createDerivative({
         type: 'DAILY',
         source_readings: readingObjectIds,
-        parent_data_ids: readingObjectIds.map(id => id.toHexString()), // Per new schema
+        parent_data_ids: readingIds, // Use reading_id instead of ObjectId for proper linkage
         content: llmResult.content,
         processing: {
           ...ipfsData,
@@ -50,6 +51,15 @@ export const generateDerivatives = async (readings: IAQIReading[]): Promise<void
           processing_time_ms: llmResult.processingTimeMs,
         }
       } as Partial<IDerivative>);
+
+      // 4. Link the derivative_id back to the AQIReading documents
+      const AQIReading = (await import('../models/AQIReading')).default;
+      await AQIReading.updateMany(
+        { _id: { $in: readingObjectIds } },
+        { $set: { 'processing.derivative_id': derivative.derivative_id } }
+      );
+
+      logger.info(`Created derivative ${derivative.derivative_id} for ${day} and linked to ${readingObjectIds.length} readings`);
 
     } catch (error) {
       logger.error(`Failed to generate derivative for day ${day}:`, error);

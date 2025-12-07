@@ -35,6 +35,7 @@ const processingSchema = new Schema({
   ipfs_hash: { type: String },
   verified_at: { type: Date },
   ai_prep_started_at: { type: Date },
+  derivative_id: { type: String }, // Links to the Derivative document
   ip_asset_id: { type: String },
   license_terms_id: { type: String },
   child_ip_asset_id: { type: String },

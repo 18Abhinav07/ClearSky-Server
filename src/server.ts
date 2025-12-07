@@ -2,6 +2,7 @@ import mongoose from 'mongoose';
 import app from './app';
 import { connectDB } from '@/database/connection';
 import { connectRedis, disconnectRedis } from '@/database/redis.connection';
+import { startDataIngestionJob } from '@/jobs/data-ingestion.job';
 import { startBatchProcessor } from '@/jobs/batch-processor.job';
 import { startVerificationJob } from '@/jobs/verifier.job';
 import { startDerivativeJob } from '@/jobs/derivative.job';
@@ -29,6 +30,10 @@ async function startServer() {
     } else {
       logger.warn('⚠ PINATA_JWT not configured - verification will fail');
     }
+
+    // Start data ingestion cron job (reads from CSV files)
+    startDataIngestionJob();
+    logger.info('✓ Data ingestion cron job started');
 
     // Start batch processor cron job
     startBatchProcessor();

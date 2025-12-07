@@ -2,6 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import csv from 'csv-parser';
 import AQIReading from '@/models/AQIReading';
+import Device from '@/models/Device';
 import { getCurrentBatchWindow, generateReadingId } from '@/utils/time-window.utils';
 import { BatchWindow } from '@/types/aqi-reading.types';
 import { logger } from '@/utils/logger';
@@ -90,12 +91,22 @@ export async function loadStationCSVData(
       throw new Error(`Station ${stationId} not found in configuration`);
     }
 
+    // Find the device registered for this station
+    const device = await Device.findOne({ 'sensor_meta.station_id': stationId, status: 'active' });
+    if (!device) {
+      throw new Error(`No active device found for station ${stationId}`);
+    }
+
     // Validate file exists
     if (!fs.existsSync(csvFilePath)) {
       throw new Error(`CSV file not found: ${csvFilePath}`);
     }
 
-    logger.info(`Loading CSV data for station ${stationId}`, { file: csvFilePath });
+    logger.info(`Loading CSV data for station ${stationId}`, {
+      file: csvFilePath,
+      device_id: device.device_id,
+      owner_id: device.owner_id
+    });
 
     // Group data by hourly batches
     const hourlyBatches = new Map<string, HourlyBatch>();
@@ -207,17 +218,17 @@ export async function loadStationCSVData(
 
           const newReading = new AQIReading({
             reading_id: readingId,
-            device_id: stationId,
-            owner_id: 'system', // System-loaded data
+            device_id: device.device_id, // Use actual device_id
+            owner_id: device.owner_id,   // Use actual owner_id
             batch_window: batch.window,
             sensor_data: sensorDataObj,
             meta: {
               location: {
-                city: stationConfig.city_name || 'Delhi',
-                city_id: 'delhi',
-                station: stationConfig.station_name,
-                station_id: stationId,
-                coordinates: stationConfig.coordinates
+                city: device.sensor_meta.city,
+                city_id: device.sensor_meta.city_id,
+                station: device.sensor_meta.station,
+                station_id: device.sensor_meta.station_id,
+                coordinates: device.sensor_meta.coordinates
               },
               ingestion_count: batch.timestamps.length,
               last_ingestion: new Date(),

@@ -2,6 +2,7 @@ import cron from 'node-cron';
 import AQIReading from '@/models/AQIReading';
 import { verifyAQIReading } from '@/services/verification.service';
 import { logger } from '@/utils/logger';
+import { CRON_CONFIG } from '@/config/constants';
 
 export interface VerificationJobResult {
   processed_count: number;
@@ -55,10 +56,27 @@ export async function processVerificationQueue(): Promise<VerificationJobResult>
     .sort({ 'batch_window.end': 1 });
 
     logger.info(`Found ${processingReadings.length} readings to verify`);
+    logger.debug(`[VERIFIER] Query executed`, {
+      service: 'verifier',
+      query: { status: 'PROCESSING', no_merkle_root: true },
+      found_count: processingReadings.length,
+      reading_ids: processingReadings.map(r => r.reading_id)
+    });
 
     for (const reading of processingReadings) {
       try {
         result.processed_count++;
+
+        logger.debug(`[VERIFIER] Starting verification`, {
+          service: 'verifier',
+          reading_id: reading.reading_id,
+          device_id: reading.device_id,
+          owner_id: reading.owner_id,
+          current_status: reading.status,
+          picked_at: reading.processing?.picked_at,
+          sensor_types: Object.keys(reading.sensor_data),
+          batch_window: reading.batch_window
+        });
 
         // Verify the reading (generate merkle root, content hash, pin to IPFS)
         const verificationResult = await verifyAQIReading(reading);
@@ -82,6 +100,20 @@ export async function processVerificationQueue(): Promise<VerificationJobResult>
           logger.info(`Successfully verified reading ${reading.reading_id}`, {
             merkle_root: verificationResult.merkle_root?.substring(0, 16) + '...',
             ipfs_hash: verificationResult.ipfs_hash
+          });
+
+          logger.debug(`[VERIFIER] Verification successful`, {
+            service: 'verifier',
+            reading_id: reading.reading_id,
+            device_id: reading.device_id,
+            status_transition: 'PROCESSING → VERIFIED',
+            merkle_root: verificationResult.merkle_root,
+            content_hash: verificationResult.content_hash,
+            ipfs_uri: verificationResult.ipfs_uri,
+            ipfs_hash: verificationResult.ipfs_hash,
+            ipfs_gateway_url: `https://gateway.pinata.cloud/ipfs/${verificationResult.ipfs_hash}`,
+            verified_at: reading.processing.verified_at?.toISOString(),
+            mongodb_updated: true
           });
 
         } else {
@@ -163,12 +195,19 @@ export async function processVerificationQueue(): Promise<VerificationJobResult>
 
 /**
  * Start the verification cron job
- * Runs every 5 minutes to process PROCESSING batches
+ * Schedule is configurable via CRON_VERIFIER env variable
  */
 export function startVerificationJob(): void {
-  // Run every 5 minutes
-  cron.schedule('*/5 * * * *', async () => {
+  const schedule = CRON_CONFIG.VERIFIER;
+
+  cron.schedule(schedule, async () => {
     logger.info('Verification cron job triggered');
+    logger.debug(`[VERIFIER] Cron triggered`, {
+      service: 'verifier',
+      schedule,
+      triggered_at: new Date().toISOString()
+    });
+
     try {
       await processVerificationQueue();
     } catch (error) {
@@ -178,5 +217,5 @@ export function startVerificationJob(): void {
     }
   });
 
-  logger.info('Verification cron job scheduled (every 5 minutes)');
+  logger.info(`Verification cron job scheduled: ${schedule}`);
 }

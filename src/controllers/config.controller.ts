@@ -2,6 +2,23 @@ import { Request, Response } from 'express';
 import { getAvailableCities, getStationsByCity, getStationById } from '@/services/config.service';
 import { logger } from '@/utils/logger';
 
+/**
+ * Get all device configuration presets (cities, stations, sensors) in one response
+ * This is the recommended endpoint for frontend to get complete configuration
+ */
+export const getPresets = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const cities = getAvailableCities();
+    res.status(200).json({ cities });
+  } catch (error) {
+    logger.error('Get presets error:', error);
+    res.status(500).json({
+      success: false,
+      error: { message: 'Server error' }
+    });
+  }
+};
+
 export const getCities = async (req: Request, res: Response): Promise<void> => {
   try {
     const cities = getAvailableCities();
