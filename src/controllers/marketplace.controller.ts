@@ -18,6 +18,11 @@ const ORIGINAL_OWNER_ROYALTY_PERCENTAGE = 5; // 5% royalty to original data owne
  */
 export const listDerivatives = async (req: Request, res: Response) => {
     try {
+        logger.info(`[MARKETPLACE:LIST] Function called`, {
+            path: req.path,
+            params: JSON.stringify(req.params),
+            query: JSON.stringify(req.query)
+        });
         logger.debug(`[MARKETPLACE] Listing derivatives request received`, {
             query: JSON.stringify(req.query)
         });
@@ -109,6 +114,12 @@ export const getDerivativeDetails = async (req: Request, res: Response) => {
     try {
         const { derivativeId } = req.params;
 
+        logger.info(`[MARKETPLACE:DETAILS] Function called`, {
+            path: req.path,
+            params: JSON.stringify(req.params),
+            query: JSON.stringify(req.query),
+            derivativeId
+        });
         logger.debug(`[MARKETPLACE] Get derivative details request`, {
             derivative_id: derivativeId
         });

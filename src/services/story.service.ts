@@ -72,14 +72,36 @@ export async function registerAndMintIpAsset(derivative: IDerivative): Promise<M
   const storyClient = getStoryClient();
   logger.info(`Registering IP Asset for derivative: ${derivative.derivative_id}`);
 
+  // Ensure content_hash has 0x prefix and is exactly 32 bytes (64 hex chars)
+  let contentHash = derivative.processing.content_hash || '';
+  if (!contentHash.startsWith('0x')) {
+    contentHash = `0x${contentHash}`;
+  }
+  
+  // Validate it's 32 bytes (66 chars with 0x prefix)
+  if (contentHash.length !== 66) {
+    throw new Error(`Invalid content hash length: ${contentHash.length}. Expected 66 characters (0x + 64 hex digits)`);
+  }
+
+  logger.debug(`[STORY:REGISTER] Prepared metadata`, {
+    derivative_id: derivative.derivative_id,
+    ipfs_hash: derivative.processing.ipfs_hash,
+    content_hash: contentHash,
+    ipfs_uri: `ipfs://${derivative.processing.ipfs_hash}`
+  });
+
   try {
-    const response = await storyClient.ipAsset.register({
-      nftContract: STORY_CONFIG.SPG_NFT_CONTRACT as Address,
-      tokenId: BigInt(Date.now()), // Use timestamp as unique token ID
+    // Use registerIpAsset to mint NFT and register IP in one transaction
+    const response = await storyClient.ipAsset.registerIpAsset({
+      nft: {
+        type: "mint",
+        spgNftContract: STORY_CONFIG.SPG_NFT_CONTRACT as Address,
+      },
       ipMetadata: {
-        ipMetadataURI: `ipfs://${derivative.processing.ipfs_hash}`,
-        ipMetadataHash: derivative.processing.content_hash as `0x${string}`,
-        nftMetadataURI: derivative.content,
+        ipMetadataURI: `https://ipfs.io/ipfs/${derivative.processing.ipfs_hash}`,
+        ipMetadataHash: contentHash as `0x${string}`,
+        nftMetadataURI: `https://ipfs.io/ipfs/${derivative.processing.ipfs_hash}`,
+        nftMetadataHash: contentHash as `0x${string}`,
       },
     });
     

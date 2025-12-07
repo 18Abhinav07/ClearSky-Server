@@ -55,9 +55,9 @@ pause() {
 print_section "PHASE 1: BUYER REGISTRATION"
 
 print_info "Registering buyer with wallet: $BUYER_WALLET"
-echo "POST $BASE_URL/users/register"
+echo "POST $BASE_URL/auth/login"
 
-REGISTER_RESPONSE=$(curl -s -X POST "$BASE_URL/users/register" \
+REGISTER_RESPONSE=$(curl -s -X POST "$BASE_URL/auth/login" \
   -H "Content-Type: application/json" \
   -d "{
     \"walletAddress\": \"$BUYER_WALLET\"
