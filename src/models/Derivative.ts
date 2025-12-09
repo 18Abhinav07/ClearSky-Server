@@ -84,6 +84,10 @@ const derivativeSchema = new Schema<IDerivative & Document>({
     type: String,
     index: true,
   },
+  license_terms_id: {
+    type: String,
+    index: true,
+  },
   is_minted: {
     type: Boolean,
     default: false,

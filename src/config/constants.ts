@@ -51,12 +51,18 @@ export const LLM_CONFIG = {
   MAX_TOKENS_MONTHLY: 2000,
 } as const;
 
-// Story Protocol Configuration
+// Story Protocol Configuration (Aeneid Testnet)
 export const STORY_CONFIG = {
   PRIVATE_KEY: process.env.STORY_PRIVATE_KEY || '',
   PLATFORM_WALLET_PRIVATE_KEY: process.env.PLATFORM_WALLET_PRIVATE_KEY || '',
   SPG_NFT_CONTRACT: process.env.STORY_SPG_NFT_CONTRACT || '',
   LICENSE_TERMS_ID: process.env.LICENSE_TERMS_ID || '',
+  // Whitelisted revenue token for Aeneid testnet
+  WIP_TOKEN_ADDRESS: '0x1514000000000000000000000000000000000000',
+  // Liquid Absolute Percentage royalty policy
+  LAP_ROYALTY_POLICY_ADDRESS: '0xBe54FB168b3c982b7AaE60dB6CF75Bd8447b390E',
+  // Programmable IP License (PIL) template for commercial use
+  COMMERCIAL_USE_PIL_TEMPLATE: '0x2E896b0b2Fdb7457499B56AAaA4AE55BCB4Cd316',
 } as const;
 
 // Cron Job Configuration

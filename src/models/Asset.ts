@@ -7,6 +7,10 @@ export interface IAsset extends Document {
   primitive_data_ids: string[];
   ip_id: string;
   token_id: string;
+  license_token_id: string;
+  license_terms_id: string;
+  access_type: 'ownership' | 'license';
+  commercial_rev_share: number;
   purchase_price: number;
   purchase_tx_hash: string;
   royalty_paid_to_original_owner: number;
@@ -56,6 +60,22 @@ const assetSchema = new Schema<IAsset>({
     type: String,
     required: true,
     index: true,
+  },
+  license_token_id: {
+    type: String,
+    index: true,
+  },
+  license_terms_id: {
+    type: String,
+    index: true,
+  },
+  access_type: {
+    type: String,
+    enum: ['ownership', 'license'],
+    default: 'ownership',
+  },
+  commercial_rev_share: {
+    type: Number,
   },
   purchase_price: {
     type: Number,

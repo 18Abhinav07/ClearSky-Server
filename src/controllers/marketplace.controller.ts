@@ -166,6 +166,7 @@ export const purchaseDerivative = async (req: Request, res: Response) => {
     try {
         const { derivativeId } = req.params;
         const { buyerWallet } = req.body;
+        const commercialRevShare = 10; // Platform gets 10% of buyer's derivatives
 
         logger.debug(`[MARKETPLACE:PURCHASE] Purchase initiated`, {
             derivative_id: derivativeId,
@@ -180,7 +181,6 @@ export const purchaseDerivative = async (req: Request, res: Response) => {
             return res.status(400).json({ success: false, message: 'Buyer wallet address is required.' });
         }
 
-        // Validate wallet format
         if (!/^0x[a-fA-F0-9]{40}$/.test(buyerWallet)) {
             logger.debug(`[MARKETPLACE:PURCHASE] Invalid wallet format`, {
                 derivative_id: derivativeId,
@@ -198,101 +198,57 @@ export const purchaseDerivative = async (req: Request, res: Response) => {
             return res.status(404).json({ success: false, message: 'Derivative not found.' });
         }
 
-        logger.debug(`[MARKETPLACE:PURCHASE] Derivative found`, {
-            derivative_id: derivativeId,
-            is_minted: derivative.is_minted,
-            derivative_data: JSON.stringify(derivative)
-        });
-
         if (derivative.is_minted) {
-            logger.debug(`[MARKETPLACE:PURCHASE] Derivative already minted`, {
+            logger.debug(`[MARKETPLACE:PURCHASE] Derivative already processed`, {
                 derivative_id: derivativeId,
-                token_id: derivative.token_id,
-                ip_id: derivative.ip_id
             });
-            return res.status(400).json({ success: false, message: 'This derivative has already been minted and sold.' });
+            return res.status(400).json({ success: false, message: 'This derivative has already been sold.' });
         }
 
-        // Fetch primitive data to get original owner
         const primitiveReadings = await AQIReading.find({
             reading_id: { $in: derivative.parent_data_ids }
         }).lean();
 
-        logger.debug(`[MARKETPLACE:PURCHASE] Primitive readings fetched`, {
-            derivative_id: derivativeId,
-            primitive_count: primitiveReadings.length,
-            primitive_readings: JSON.stringify(primitiveReadings)
-        });
-
         const originalOwnerWallet = primitiveReadings[0]?.owner_id || null;
 
-        logger.debug(`[MARKETPLACE:PURCHASE] Original owner identified`, {
-            derivative_id: derivativeId,
-            original_owner: originalOwnerWallet
-        });
-
-        // Calculate pricing (for demo purposes, using fixed price)
-        const basePrice = 100; // $100 base price
+        const basePrice = 100;
         const platformFee = (basePrice * PLATFORM_FEE_PERCENTAGE) / 100;
         const royalty = (basePrice * ORIGINAL_OWNER_ROYALTY_PERCENTAGE) / 100;
-        const sellerReceives = basePrice - platformFee - royalty;
 
-        logger.debug(`[MARKETPLACE:PURCHASE] Pricing calculated`, {
-            derivative_id: derivativeId,
-            base_price: basePrice,
-            platform_fee: platformFee,
-            platform_fee_percentage: PLATFORM_FEE_PERCENTAGE,
-            royalty: royalty,
-            royalty_percentage: ORIGINAL_OWNER_ROYALTY_PERCENTAGE,
-            original_owner_receives: royalty,
-            seller_receives: sellerReceives
+        logger.info(`[MARKETPLACE:PURCHASE] Starting IP Asset registration`, {
+            derivative_id: derivativeId
         });
 
-        logger.info(`[MARKETPLACE:PURCHASE] Starting IP Asset registration and minting`, {
-            derivative_id: derivativeId,
-            buyer_wallet: buyerWallet
-        });
-
-        // Step 1: Register and mint IP Asset
+        // STEP 1: Register IP Asset (Platform owns)
         const { ipId, tokenId, txHash } = await StoryService.registerAndMintIpAsset(derivative);
+        logger.debug(`[MARKETPLACE:PURCHASE] IP Asset registered`, { derivative_id: derivativeId, ip_id: ipId, token_id: tokenId });
 
-        logger.debug(`[MARKETPLACE:PURCHASE] IP Asset registered and minted`, {
-            derivative_id: derivativeId,
-            ip_id: ipId,
-            token_id: tokenId,
-            tx_hash: txHash
+        // STEP 2: Attach License Terms with revenue share
+        const { licenseTermsId, txHash: licenseTermsTxHash } = await StoryService.attachLicenseTerms({
+            ipId,
+            commercialRevShare,
         });
+        logger.debug(`[MARKETPLACE:PURCHASE] License terms attached`, { derivative_id: derivativeId, ip_id: ipId, license_terms_id: licenseTermsId });
 
-        // Step 2: Transfer NFT to buyer
-        logger.info(`[MARKETPLACE:PURCHASE] Transferring NFT to buyer`, {
-            derivative_id: derivativeId,
-            token_id: tokenId,
-            buyer_wallet: buyerWallet
+        // STEP 3: Mint License Token for buyer
+        const { licenseTokenId, txHash: licenseTxHash } = await StoryService.mintLicenseToken({
+            ipId,
+            licenseTermsId,
+            buyerWallet: buyerWallet as `0x${string}`,
+            amount: 1,
         });
+        logger.debug(`[MARKETPLACE:PURCHASE] License token minted for buyer`, { derivative_id: derivativeId, license_token_id: licenseTokenId });
 
-        const transferTxHash = await StoryService.transferNftToBuyer(tokenId, buyerWallet as `0x${string}`);
-
-        logger.debug(`[MARKETPLACE:PURCHASE] NFT transferred to buyer`, {
-            derivative_id: derivativeId,
-            token_id: tokenId,
-            buyer_wallet: buyerWallet,
-            transfer_tx_hash: transferTxHash
-        });
-
-        // Step 3: Update derivative record
+        // STEP 4: Update derivative record
         derivative.ip_id = ipId;
         derivative.token_id = tokenId;
+        derivative.license_terms_id = licenseTermsId;
         derivative.is_minted = true;
         await derivative.save();
+        logger.debug(`[MARKETPLACE:PURCHASE] Derivative record updated`, { derivative_id: derivativeId });
 
-        logger.debug(`[MARKETPLACE:PURCHASE] Derivative record updated`, {
-            derivative_id: derivativeId,
-            updated_derivative: JSON.stringify(derivative)
-        });
-
-        // Step 4: Create asset record
+        // STEP 5: Create asset record
         const assetId = `asset_${uuidv4()}`;
-
         const asset = new Asset({
             asset_id: assetId,
             owner_wallet: buyerWallet.toLowerCase(),
@@ -300,8 +256,12 @@ export const purchaseDerivative = async (req: Request, res: Response) => {
             primitive_data_ids: derivative.parent_data_ids,
             ip_id: ipId,
             token_id: tokenId,
+            license_token_id: licenseTokenId,
+            license_terms_id: licenseTermsId,
+            access_type: 'license',
+            commercial_rev_share: commercialRevShare,
             purchase_price: basePrice,
-            purchase_tx_hash: transferTxHash,
+            purchase_tx_hash: licenseTxHash,
             royalty_paid_to_original_owner: royalty,
             platform_fee: platformFee,
             purchased_at: new Date(),
@@ -311,88 +271,50 @@ export const purchaseDerivative = async (req: Request, res: Response) => {
                 ipfs_uri: derivative.processing.ipfs_uri || '',
             },
         });
-
         await asset.save();
+        logger.debug(`[MARKETPLACE:PURCHASE] Asset record created`, { asset_id: assetId });
 
-        logger.debug(`[MARKETPLACE:PURCHASE] Asset record created`, {
-            derivative_id: derivativeId,
-            asset_id: assetId,
-            asset_data: JSON.stringify(asset)
-        });
-
-        // Step 5: Update buyer's user record
+        // Step 6: Update buyer's user record
         let buyer = await User.findOne({ walletAddress: buyerWallet.toLowerCase() });
-
         if (!buyer) {
-            logger.debug(`[MARKETPLACE:PURCHASE] Creating new user record for buyer`, {
-                buyer_wallet: buyerWallet
-            });
-
-            buyer = new User({
-                walletAddress: buyerWallet.toLowerCase(),
-                devices: [],
-                assets: [assetId],
-            });
+            buyer = new User({ walletAddress: buyerWallet.toLowerCase(), devices: [], assets: [assetId] });
         } else {
-            logger.debug(`[MARKETPLACE:PURCHASE] Updating existing user record`, {
-                buyer_wallet: buyerWallet,
-                current_assets: JSON.stringify(buyer.assets)
-            });
-
             buyer.assets.push(assetId);
         }
-
         await buyer.save();
-
-        logger.debug(`[MARKETPLACE:PURCHASE] Buyer user record updated`, {
-            buyer_wallet: buyerWallet,
-            updated_user: JSON.stringify(buyer)
-        });
-
-        // Step 6: Update original owner's user record (if exists)
-        if (originalOwnerWallet) {
-            logger.debug(`[MARKETPLACE:PURCHASE] Updating original owner record`, {
-                original_owner: originalOwnerWallet,
-                royalty_amount: royalty
-            });
-
-            const originalOwner = await User.findOne({ walletAddress: originalOwnerWallet.toLowerCase() });
-
-            logger.debug(`[MARKETPLACE:PURCHASE] Original owner lookup result`, {
-                original_owner: originalOwnerWallet,
-                found: !!originalOwner,
-                owner_data: originalOwner ? JSON.stringify(originalOwner) : 'null'
-            });
-        }
+        logger.debug(`[MARKETPLACE:PURCHASE] Buyer user record updated`, { buyer_wallet: buyerWallet });
 
         logger.info(`[MARKETPLACE:PURCHASE] Purchase completed successfully`, {
             derivative_id: derivativeId,
-            buyer_wallet: buyerWallet,
             asset_id: assetId,
             ip_id: ipId,
-            token_id: tokenId,
-            transfer_tx_hash: transferTxHash
+            license_token_id: licenseTokenId
         });
 
         res.status(200).json({
             success: true,
-            message: 'Purchase successful! NFT minted and transferred.',
+            message: 'License minted! You now have rights to use this data.',
             data: {
                 asset_id: assetId,
                 ip_id: ipId,
-                token_id: tokenId,
-                mint_tx_hash: txHash,
-                transfer_tx_hash: transferTxHash,
+                license_token_id: licenseTokenId,
+                license_terms_id: licenseTermsId,
+                access_type: 'license',
+                platform_royalty: `${commercialRevShare}%`,
                 pricing: {
                     total_paid: basePrice,
-                    platform_fee: platformFee,
+                    platform_immediate_fee: platformFee,
                     original_owner_royalty: royalty,
-                    original_owner_wallet: originalOwnerWallet || 'N/A',
                 },
-                explorer_links: {
-                    mint_tx: `https://explorer.story.foundation/tx/${txHash}`,
-                    transfer_tx: `https://explorer.story.foundation/tx/${transferTxHash}`,
+                royalty_info: {
+                    platform_earns_from_derivatives: `${commercialRevShare}%`,
+                    how_it_works: `If you create derivatives, the platform receives ${commercialRevShare}% of revenue automatically.`,
                 },
+                tx_hashes: {
+                    ip_mint: txHash,
+                    license_attach: licenseTermsTxHash,
+                    license_mint: licenseTxHash,
+                }
             },
         });
     } catch (error) {
@@ -412,6 +334,7 @@ export const purchaseDerivative = async (req: Request, res: Response) => {
 export const bulkPurchaseDerivatives = async (req: Request, res: Response) => {
     try {
         const { buyerWallet, derivativeIds, filter } = req.body;
+        const commercialRevShare = 10; // Platform gets 10%
 
         logger.debug(`[MARKETPLACE:BULK_PURCHASE] Bulk purchase initiated`, {
             buyer_wallet: buyerWallet,
@@ -426,64 +349,50 @@ export const bulkPurchaseDerivatives = async (req: Request, res: Response) => {
         let derivatives;
 
         if (derivativeIds && derivativeIds.length > 0) {
-            // Purchase specific derivatives by ID
             derivatives = await Derivative.find({
                 derivative_id: { $in: derivativeIds },
                 is_minted: false,
             });
-
-            logger.debug(`[MARKETPLACE:BULK_PURCHASE] Found derivatives by IDs`, {
-                requested_count: derivativeIds.length,
-                found_count: derivatives.length,
-                derivative_ids: JSON.stringify(derivatives.map(d => d.derivative_id))
-            });
         } else if (filter) {
-            // Purchase derivatives by filter
-            const queryFilter: any = { is_minted: false };
-
-            if (filter.type) queryFilter.type = filter.type;
-
+            const queryFilter: any = { is_minted: false, ...filter };
             derivatives = await Derivative.find(queryFilter).limit(filter.limit || 10);
-
-            logger.debug(`[MARKETPLACE:BULK_PURCHASE] Found derivatives by filter`, {
-                filter: JSON.stringify(queryFilter),
-                found_count: derivatives.length,
-                derivative_ids: JSON.stringify(derivatives.map(d => d.derivative_id))
-            });
         } else {
             return res.status(400).json({
                 success: false,
-                message: 'Either derivativeIds array or filter object is required.'
+                message: 'Either derivativeIds array or a filter object is required.'
             });
         }
 
         if (derivatives.length === 0) {
-            logger.debug(`[MARKETPLACE:BULK_PURCHASE] No available derivatives found`, {
-                buyer_wallet: buyerWallet
-            });
-            return res.status(404).json({ success: false, message: 'No available derivatives found.' });
+            return res.status(404).json({ success: false, message: 'No available derivatives found for bulk purchase.' });
         }
 
         const results = [];
 
         for (const derivative of derivatives) {
             try {
-                logger.debug(`[MARKETPLACE:BULK_PURCHASE] Processing derivative ${derivative.derivative_id}`, {
-                    derivative_id: derivative.derivative_id,
-                    buyer_wallet: buyerWallet
+                logger.debug(`[MARKETPLACE:BULK_PURCHASE] Processing derivative ${derivative.derivative_id}`);
+
+                const { ipId, tokenId, txHash } = await StoryService.registerAndMintIpAsset(derivative);
+                
+                const { licenseTermsId } = await StoryService.attachLicenseTerms({
+                    ipId,
+                    commercialRevShare,
                 });
 
-                // Mint and transfer
-                const { ipId, tokenId, txHash } = await StoryService.registerAndMintIpAsset(derivative);
-                const transferTxHash = await StoryService.transferNftToBuyer(tokenId, buyerWallet as `0x${string}`);
+                const { licenseTokenId } = await StoryService.mintLicenseToken({
+                    ipId,
+                    licenseTermsId,
+                    buyerWallet: buyerWallet as `0x${string}`,
+                    amount: 1,
+                });
 
-                // Update derivative
                 derivative.ip_id = ipId;
                 derivative.token_id = tokenId;
+                derivative.license_terms_id = licenseTermsId;
                 derivative.is_minted = true;
                 await derivative.save();
 
-                // Create asset
                 const assetId = `asset_${uuidv4()}`;
                 const basePrice = 100;
                 const platformFee = (basePrice * PLATFORM_FEE_PERCENTAGE) / 100;
@@ -496,39 +405,29 @@ export const bulkPurchaseDerivatives = async (req: Request, res: Response) => {
                     primitive_data_ids: derivative.parent_data_ids,
                     ip_id: ipId,
                     token_id: tokenId,
+                    license_token_id: licenseTokenId,
+                    license_terms_id: licenseTermsId,
+                    access_type: 'license',
+                    commercial_rev_share: commercialRevShare,
                     purchase_price: basePrice,
-                    purchase_tx_hash: transferTxHash,
+                    purchase_tx_hash: txHash, // Using the mint tx hash for now
                     royalty_paid_to_original_owner: royalty,
                     platform_fee: platformFee,
-                    purchased_at: new Date(),
-                    metadata: {
-                        derivative_type: derivative.type,
-                        content_hash: derivative.processing.content_hash || '',
-                        ipfs_uri: derivative.processing.ipfs_uri || '',
-                    },
                 });
 
                 await asset.save();
-
-                logger.debug(`[MARKETPLACE:BULK_PURCHASE] Successfully processed derivative ${derivative.derivative_id}`, {
-                    derivative_id: derivative.derivative_id,
-                    asset_id: assetId,
-                    token_id: tokenId
-                });
 
                 results.push({
                     success: true,
                     derivative_id: derivative.derivative_id,
                     asset_id: assetId,
-                    token_id: tokenId,
                     ip_id: ipId,
+                    license_token_id: licenseTokenId,
                 });
             } catch (error) {
                 logger.error(`[MARKETPLACE:BULK_PURCHASE] Failed to process derivative ${derivative.derivative_id}`, {
-                    derivative_id: derivative.derivative_id,
                     error: error instanceof Error ? error.message : 'Unknown error'
                 });
-
                 results.push({
                     success: false,
                     derivative_id: derivative.derivative_id,
@@ -537,35 +436,26 @@ export const bulkPurchaseDerivatives = async (req: Request, res: Response) => {
             }
         }
 
-        // Update buyer's assets
-        let buyer = await User.findOne({ walletAddress: buyerWallet.toLowerCase() });
         const successfulAssetIds = results.filter(r => r.success).map(r => r.asset_id);
-
-        if (!buyer) {
-            buyer = new User({
-                walletAddress: buyerWallet.toLowerCase(),
-                devices: [],
-                assets: successfulAssetIds,
-            });
-        } else {
-            buyer.assets.push(...successfulAssetIds.filter((id): id is string => id !== undefined));
+        if (successfulAssetIds.length > 0) {
+            await User.updateOne(
+                { walletAddress: buyerWallet.toLowerCase() },
+                { $push: { assets: { $each: successfulAssetIds } } },
+                { upsert: true }
+            );
         }
-
-        await buyer.save();
 
         logger.info(`[MARKETPLACE:BULK_PURCHASE] Bulk purchase completed`, {
             buyer_wallet: buyerWallet,
-            total_requested: derivatives.length,
-            successful: results.filter(r => r.success).length,
-            failed: results.filter(r => !r.success).length,
-            results: JSON.stringify(results)
+            successful_count: results.filter(r => r.success).length,
+            failed_count: results.filter(r => !r.success).length,
         });
 
         res.status(200).json({
             success: true,
-            message: 'Bulk purchase completed.',
+            message: 'Bulk purchase processing complete.',
             data: {
-                total: derivatives.length,
+                total_processed: derivatives.length,
                 successful: results.filter(r => r.success).length,
                 failed: results.filter(r => !r.success).length,
                 results,
@@ -628,33 +518,33 @@ export const downloadDerivative = async (req: Request, res: Response) => {
 
         const derivative = await Derivative.findOne({ derivative_id: derivativeId });
 
-        if (!derivative || !derivative.is_minted || !derivative.token_id) {
-            logger.debug(`[MARKETPLACE:DOWNLOAD] Derivative not found or not minted`, {
+        if (!derivative || !derivative.is_minted || !derivative.ip_id) {
+            logger.debug(`[MARKETPLACE:DOWNLOAD] Derivative not found, not minted, or has no IP ID`, {
                 derivative_id: derivativeId,
                 found: !!derivative,
                 is_minted: derivative?.is_minted,
-                token_id: derivative?.token_id
+                ip_id: derivative?.ip_id
             });
-            return res.status(404).json({ success: false, message: 'Minted derivative not found.' });
+            return res.status(404).json({ success: false, message: 'Sold derivative not found.' });
         }
 
-        logger.debug(`[MARKETPLACE:DOWNLOAD] Verifying ownership`, {
+        logger.debug(`[MARKETPLACE:DOWNLOAD] Verifying license ownership`, {
             derivative_id: derivativeId,
-            token_id: derivative.token_id,
+            ip_id: derivative.ip_id,
             wallet_address: walletAddress
         });
 
-        const isOwner = await StoryService.verifyOwnership(derivative.token_id, walletAddress as `0x${string}`);
+        const hasLicense = await StoryService.verifyLicenseOwnership(derivative.ip_id as `0x${string}`, walletAddress as `0x${string}`);
 
-        logger.debug(`[MARKETPLACE:DOWNLOAD] Ownership verification result`, {
+        logger.debug(`[MARKETPLACE:DOWNLOAD] License verification result`, {
             derivative_id: derivativeId,
-            token_id: derivative.token_id,
+            ip_id: derivative.ip_id,
             wallet_address: walletAddress,
-            is_owner: isOwner
+            has_license: hasLicense
         });
 
-        if (!isOwner) {
-            return res.status(403).json({ success: false, message: 'You do not own the NFT for this derivative.' });
+        if (!hasLicense) {
+            return res.status(403).json({ success: false, message: 'You do not have a valid license to download this derivative.' });
         }
 
         logger.info(`[MARKETPLACE:DOWNLOAD] Download access granted`, {
@@ -664,7 +554,7 @@ export const downloadDerivative = async (req: Request, res: Response) => {
 
         res.status(200).json({
             success: true,
-            message: 'Ownership verified. Download access granted.',
+            message: 'License verified. Download access granted.',
             data: {
                 content: derivative.content,
                 processing: derivative.processing,

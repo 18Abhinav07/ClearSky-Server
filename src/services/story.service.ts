@@ -1,34 +1,10 @@
 import { StoryClient, StoryConfig } from '@story-protocol/core-sdk';
-import { http, Address, createWalletClient, WalletClient, Account, PublicClient, createPublicClient } from 'viem';
+import { http, Address, createPublicClient, PublicClient } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { sepolia } from 'viem/chains';
 import { STORY_CONFIG } from '../config/constants';
 import { logger } from '../utils/logger';
 import { IDerivative } from '../types/derivative.types';
-
-// --- Minimal ABIs for direct contract interaction ---
-
-const ERC721_MINIMAL_ABI = [
-  {
-    "inputs": [{ "internalType": "uint256", "name": "tokenId", "type": "uint256" }],
-    "name": "ownerOf",
-    "outputs": [{ "internalType": "address", "name": "", "type": "address" }],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      { "internalType": "address", "name": "from", "type": "address" },
-      { "internalType": "address", "name": "to", "type": "address" },
-      { "internalType": "uint256", "name": "tokenId", "type": "uint256" }
-    ],
-    "name": "transferFrom",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  }
-] as const;
-
 
 // --- Client Initialization ---
 
@@ -125,53 +101,103 @@ export async function registerAndMintIpAsset(derivative: IDerivative): Promise<M
   }
 }
 
-/**
- * Transfers a newly minted NFT from the platform wallet to the buyer.
- */
-export async function transferNftToBuyer(tokenId: string, buyerWallet: Address): Promise<Address> {
-    if (!STORY_CONFIG.PLATFORM_WALLET_PRIVATE_KEY) {
-        throw new Error('PLATFORM_WALLET_PRIVATE_KEY is not set. Cannot transfer NFT.');
+interface AttachLicenseTermsRequest {
+    ipId: Address;
+    commercialRevShare: number;
+}
+
+interface AttachLicenseTermsResponse {
+    licenseTermsId: string;
+    txHash: Address;
+}
+
+export async function attachLicenseTerms(request: AttachLicenseTermsRequest): Promise<AttachLicenseTermsResponse> {
+    const storyClient = getStoryClient();
+    const { ipId, commercialRevShare } = request;
+
+    logger.info(`Registering and attaching license terms for IP ID: ${ipId}`);
+    
+    // Step 1: Register the Commercial Use PIL with the specified revenue share
+    const registerResponse = await storyClient.license.registerCommercialUsePIL({
+        commercialRevShare,
+        currency: STORY_CONFIG.WIP_TOKEN_ADDRESS as Address,
+        royaltyPolicyAddress: STORY_CONFIG.LAP_ROYALTY_POLICY_ADDRESS as Address,
+    });
+
+    if (!registerResponse.licenseTermsId) {
+        throw new Error('Failed to get licenseTermsId from registration response.');
     }
+    const licenseTermsId = registerResponse.licenseTermsId;
+    logger.info(`Successfully registered new license terms: ${licenseTermsId}`);
 
-    const platformAccount = privateKeyToAccount(STORY_CONFIG.PLATFORM_WALLET_PRIVATE_KEY as `0x${string}`);
-    const platformWalletClient = createWalletClient({
-        account: platformAccount,
-        chain: sepolia,
-        transport: http(process.env.RPC_PROVIDER_URL || 'https://sepolia.rpc.storyprotocol.net'),
+    // Step 2: Attach the newly registered license terms to the IP asset
+    const attachResponse = await storyClient.license.attachLicenseTerms({
+        ipId,
+        licenseTermsId,
+        licenseTemplate: STORY_CONFIG.COMMERCIAL_USE_PIL_TEMPLATE as Address,
     });
 
-    logger.info(`Transferring token ${tokenId} from ${platformAccount.address} to ${buyerWallet}`);
+    logger.info(`Successfully attached license ${licenseTermsId} to IP ${ipId}. Tx: ${attachResponse.txHash}`);
 
-    const txHash = await platformWalletClient.writeContract({
-        address: STORY_CONFIG.SPG_NFT_CONTRACT as Address,
-        abi: ERC721_MINIMAL_ABI,
-        functionName: 'transferFrom',
-        args: [platformAccount.address, buyerWallet, BigInt(tokenId)],
-    });
-
-    logger.info(`Successfully initiated transfer. Transaction hash: ${txHash}`);
-    return txHash;
+    return {
+        licenseTermsId: licenseTermsId.toString(),
+        txHash: attachResponse.txHash,
+    };
 }
 
 
-/**
- * Verifies if a given wallet address is the owner of a specific token.
- */
-export async function verifyOwnership(tokenId: string, potentialOwner: Address): Promise<boolean> {
-  const reader = getPublicClient();
-  logger.info(`Verifying ownership of token ${tokenId} for ${potentialOwner}`);
+interface MintLicenseTokenRequest {
+    ipId: Address;
+    licenseTermsId: string;
+    buyerWallet: Address;
+    amount: number;
+}
 
-  try {
-    const owner = await reader.readContract({
-        address: STORY_CONFIG.SPG_NFT_CONTRACT as Address,
-        abi: ERC721_MINIMAL_ABI,
-        functionName: 'ownerOf',
-        args: [BigInt(tokenId)]
+interface MintLicenseTokenResponse {
+    licenseTokenId: string;
+    txHash: Address;
+}
+
+export async function mintLicenseToken(request: MintLicenseTokenRequest): Promise<MintLicenseTokenResponse> {
+    const storyClient = getStoryClient();
+    const { licenseTermsId, buyerWallet, amount } = request;
+    logger.info(`Minting ${amount} license token(s) for terms ${licenseTermsId} to ${buyerWallet}`);
+
+    const response = await storyClient.license.mintLicenseTokens({
+        licenseTermsId: BigInt(licenseTermsId),
+        licenseTemplate: STORY_CONFIG.COMMERCIAL_USE_PIL_TEMPLATE as Address,
+        licenseHolder: buyerWallet,
+        amount,
+        receiver: buyerWallet,
     });
 
-    return owner.toLowerCase() === potentialOwner.toLowerCase();
+    if (!response.licenseTokenId) {
+        throw new Error('Failed to get licenseTokenId from minting response.');
+    }
+
+    logger.info(`Successfully minted license token ${response.licenseTokenId}. Tx: ${response.txHash}`);
+
+    return {
+        licenseTokenId: response.licenseTokenId.toString(),
+        txHash: response.txHash,
+    };
+}
+
+/**
+ * Verifies if a given wallet address holds a license for a specific IP asset.
+ */
+export async function verifyLicenseOwnership(ipId: Address, potentialOwner: Address): Promise<boolean> {
+  const storyClient = getStoryClient();
+  logger.info(`Verifying license ownership of IP ${ipId} for ${potentialOwner}`);
+
+  try {
+    const isLicenseHolder = await storyClient.license.isLicenseHolder({
+        ipId,
+        licenseHolder: potentialOwner,
+    });
+    return isLicenseHolder;
   } catch (error) {
-    logger.error(`Failed to verify ownership for token ${tokenId}:`, error);
+    logger.error(`Failed to verify license ownership for IP ${ipId}:`, error);
     return false;
   }
 }

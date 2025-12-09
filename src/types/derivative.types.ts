@@ -31,6 +31,7 @@ export interface IDerivative {
   // Story Protocol Fields
   ip_id?: string;
   token_id?: string;
+  license_terms_id?: string;
   is_minted: boolean;
 
   created_at: Date;
