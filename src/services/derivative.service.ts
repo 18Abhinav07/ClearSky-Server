@@ -68,27 +68,49 @@ async function generateDailyReportWithLLM(day: string, readings: IAQIReading[]) 
   // 1. Prepare data for the prompt
   const { hourlyDataContext, dailyAvgPm10, peakPm10Hour } = prepareDataForPrompt(readings);
 
-  // 2. Load prompt templates
-  const [systemInstructions, formattingRules, dailyLogTemplate] = await Promise.all([
-    llmService.loadPromptTemplate('system_instructions.md'),
-    llmService.loadPromptTemplate('formatting_rules.md'),
-    llmService.loadPromptTemplate('daily_log.template.md'),
-  ]);
-  
-  // 3. Construct the final prompt
-  let userPrompt = dailyLogTemplate
-    .replace('{{system_instructions}}', systemInstructions)
-    .replace('{{formatting_rules}}', formattingRules)
-    .replace('{{date}}', moment(day).format('DD MMM YYYY'))
-    .replace('{{location_name}}', readings[0]?.meta.location.station || 'Unknown')
-    .replace('{{daily_avg_pm10}}', dailyAvgPm10.toFixed(2))
-    .replace('{{peak_pm10_hour}}', peakPm10Hour.toString())
-    .replace('{{hourly_data_json}}', JSON.stringify(hourlyDataContext, null, 2));
+  // 2. Define inline prompts
+  const systemInstructions = `You are an expert air quality analyst. Your task is to generate comprehensive, insightful daily reports based on AQI sensor data. Focus on trends, peak events, health implications, and actionable recommendations. Be professional, data-driven, and accessible to a general audience.`;
 
-  // 4. Call the LLM to generate the content
+  const formattingRules = `
+- Use markdown formatting with clear headers (##, ###)
+- Include emojis for visual appeal (🕒 for time, 📊 for data, 💡 for insights)
+- Present data in tables when appropriate
+- Keep paragraphs concise and scannable
+- Use bold (**text**) for emphasis
+- Include bullet points for lists
+`;
+
+  const dailyLogTemplate = `# 📜 Daily Log: ${moment(day).format('DD MMM YYYY')}
+**Location**: ${readings[0]?.meta.location.station || 'Unknown'}
+
+## 📊 Summary
+- **Daily Average PM10**: ${dailyAvgPm10.toFixed(2)} µg/m³
+- **Peak Hour**: ${peakPm10Hour}:00
+
+## 🕒 Hourly Breakdown
+
+Generate a detailed hourly analysis based on this data:
+\`\`\`json
+${JSON.stringify(hourlyDataContext, null, 2)}
+\`\`\`
+
+For each hour, provide:
+1. Time (## 🕒 HH:00)
+2. Air Quality Metrics table
+3. Smart Analysis with narrative and health implications
+
+${formattingRules}
+
+Focus on:
+- Identifying pollution spikes and their potential causes
+- Hour-to-hour trends and changes
+- Health recommendations based on PM10 levels
+- Notable events or patterns throughout the day`;
+
+  // 3. Call the LLM to generate the content
   return llmService.generateInference(
-    systemInstructions, // System prompt is implicitly part of the user prompt in this setup
-    userPrompt,
+    systemInstructions,
+    dailyLogTemplate,
     LLM_CONFIG.DAILY_MODEL,
     LLM_CONFIG.TEMPERATURE_DAILY,
     LLM_CONFIG.MAX_TOKENS_DAILY

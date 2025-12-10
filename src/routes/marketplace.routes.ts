@@ -20,6 +20,11 @@ router.get('/download/:derivativeId', authenticate, marketplaceController.downlo
 // @access  Authenticated
 router.post('/derivatives/create', authenticate, marketplaceController.createUserDerivative);
 
+// @route   GET /api/v1/marketplace/:walletAddress/derivatives
+// @desc    Get DAILY derivatives created from a user's device readings
+// @access  Public
+router.get('/:walletAddress/derivatives', marketplaceController.getUserDeviceDerivatives);
+
 // @route   GET /api/v1/marketplace/derivatives/my-creations/:walletAddress
 // @desc    List all derivatives created by a specific user
 // @access  Public

@@ -817,3 +817,65 @@ export const browseUserDerivatives = async (req: Request, res: Response) => {
         res.status(500).json({ success: false, message: 'Server error.' });
     }
 };
+
+/**
+ * Get DAILY derivatives created from a user's device readings
+ */
+export const getUserDeviceDerivatives = async (req: Request, res: Response) => {
+    try {
+        const { walletAddress } = req.params;
+
+        logger.debug(`[MARKETPLACE:USER_DEVICE_DERIVATIVES] Fetching derivatives for user`, {
+            wallet_address: walletAddress
+        });
+
+        // Step 1: Find all AQI readings owned by this user that have derivatives
+        const userReadings = await AQIReading.find({
+            owner_id: walletAddress.toLowerCase(),
+            status: { $in: ['DERIVED_INDIVIDUAL', 'COMPLETE'] }
+        }).select('reading_id').lean();
+
+        if (userReadings.length === 0) {
+            logger.debug(`[MARKETPLACE:USER_DEVICE_DERIVATIVES] No readings found for user`, {
+                wallet_address: walletAddress
+            });
+            return res.status(200).json({
+                success: true,
+                data: [],
+                message: 'No derivatives found for this user'
+            });
+        }
+
+        const readingIds = userReadings.map(r => r.reading_id);
+
+        logger.debug(`[MARKETPLACE:USER_DEVICE_DERIVATIVES] Found user readings`, {
+            wallet_address: walletAddress,
+            reading_count: readingIds.length,
+            reading_ids: readingIds
+        });
+
+        // Step 2: Find DAILY derivatives that include any of these reading IDs
+        const derivatives = await Derivative.find({
+            type: 'DAILY',
+            parent_data_ids: { $in: readingIds }
+        }).sort({ created_at: -1 }).lean();
+
+        logger.debug(`[MARKETPLACE:USER_DEVICE_DERIVATIVES] Found derivatives`, {
+            wallet_address: walletAddress,
+            derivative_count: derivatives.length
+        });
+
+        res.status(200).json({
+            success: true,
+            data: derivatives,
+            count: derivatives.length
+        });
+
+    } catch (error) {
+        logger.error(`[MARKETPLACE:USER_DEVICE_DERIVATIVES] Failed to fetch user device derivatives:`, {
+            error: error instanceof Error ? error.message : 'Unknown error',
+            wallet_address: req.params.walletAddress
+        });
+        res.status(500).json({ success: false, message: 'Server error' });
+    }
+};

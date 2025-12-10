@@ -5,8 +5,8 @@ dotenv.config();
 export const MAX_DEVICES_PER_PROVIDER = parseInt(process.env.MAX_DEVICES_PER_PROVIDER || '3', 10);
 
 export const TOKEN_CONFIG = {
-  ACCESS_TOKEN_EXPIRY: '15m',          // 15 minutes
-  ACCESS_TOKEN_EXPIRY_SECONDS: 900,    // For Redis TTL
+  ACCESS_TOKEN_EXPIRY: '1d',           // 1 day
+  ACCESS_TOKEN_EXPIRY_SECONDS: 86400,  // For Redis TTL
 
   REFRESH_TOKEN_EXPIRY: '7d',          // 7 days
   REFRESH_TOKEN_EXPIRY_SECONDS: 604800,

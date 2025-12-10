@@ -66,29 +66,50 @@ export async function processMetaDerivativeGeneration(): Promise<void> {
 
     // 4. Prepare data for the monthly prompt
     const { dailySummariesJSON, worstDay, bestDay, overallStatus, location } = await prepareDataForMonthlyPrompt(dailyDerivatives);
-    
-    // 5. Load prompt templates
-    // ... (rest of the logic is similar)
-    const [systemInstructions, formattingRules, monthlyTemplate] = await Promise.all([
-        llmService.loadPromptTemplate('system_instructions.md'),
-        llmService.loadPromptTemplate('formatting_rules.md'),
-        llmService.loadPromptTemplate('monthly_summary.template.md'),
-    ]);
 
-    // 6. Construct the final prompt
-    let userPrompt = monthlyTemplate
-        .replace('{{system_instructions}}', systemInstructions)
-        .replace('{{formatting_rules}}', formattingRules)
-        .replace('{{month_name}}', lastMonth.format('MMMM'))
-        .replace('{{year}}', year.toString())
-        .replace('{{location_name}}', location)
-        .replace('{{monthly_status_emoji}}', overallStatus.emoji)
-        .replace('{{monthly_status_text}}', overallStatus.text)
-        .replace('{{worst_day_date}}', worstDay.date)
-        .replace('{{worst_day_peak_pm10}}', worstDay.pm10.toFixed(2))
-        .replace('{{best_day_date}}', bestDay.date)
-        .replace('{{best_day_avg_pm10}}', bestDay.pm10.toFixed(2))
-        .replace('{{daily_summaries_json}}', JSON.stringify(dailySummariesJSON, null, 2));
+    // 5. Define inline prompts
+    const systemInstructions = `You are an expert air quality analyst specializing in long-term trend analysis. Your task is to create comprehensive monthly air quality reports by synthesizing daily observations. Focus on identifying patterns, significant events, seasonal trends, and providing actionable public health recommendations. Be thorough, data-driven, and accessible to policy makers and the general public.`;
+
+    const formattingRules = `
+- Use markdown formatting with clear headers (#, ##, ###)
+- Include emojis for visual appeal (📅 for dates, 📊 for trends, 🌍 for environmental context)
+- Present data in tables and charts when appropriate
+- Keep sections well-organized and scannable
+- Use bold (**text**) for emphasis on key findings
+- Include bullet points for actionable recommendations
+- Highlight critical events and anomalies
+`;
+
+    const monthlyTemplate = `# 🌍 Monthly Air Quality Report: ${lastMonth.format('MMMM')} ${year}
+**Location**: ${location}
+**Overall Status**: ${overallStatus.emoji} ${overallStatus.text}
+
+## 📊 Executive Summary
+- **Worst Day**: ${worstDay.date} (Peak PM10: ${worstDay.pm10.toFixed(2)} µg/m³)
+- **Best Day**: ${bestDay.date} (Avg PM10: ${bestDay.pm10.toFixed(2)} µg/m³)
+- **Days Analyzed**: ${dailySummariesJSON.length}
+
+## 📅 Daily Summaries
+
+Based on the following daily data, create a comprehensive monthly analysis:
+\`\`\`json
+${JSON.stringify(dailySummariesJSON, null, 2)}
+\`\`\`
+
+${formattingRules}
+
+Your report should include:
+1. **Monthly Trends**: Analyze week-by-week patterns and overall trajectory
+2. **Significant Events**: Highlight days with exceptional readings and potential causes
+3. **Health Impact Analysis**: Assess cumulative health implications for the population
+4. **Environmental Factors**: Discuss potential meteorological or human activity correlations
+5. **Recommendations**: Provide actionable advice for residents, authorities, and policy makers
+6. **Comparative Analysis**: Compare with typical seasonal patterns if applicable
+
+Focus on storytelling with data - make the report both informative and engaging.`;
+
+    // 6. Set user prompt
+    const userPrompt = monthlyTemplate;
 
 
     // 7. Call the LLM with the powerful model
