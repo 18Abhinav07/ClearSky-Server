@@ -41,6 +41,22 @@ export interface MintAndRegisterIPAssetResponse {
     txHash: Address;
 }
 
+export interface RegisterDerivativeIpRequest {
+    parentIpId: Address;
+    parentLicenseTermsId: string;
+    creatorWallet: Address;
+    metadata: {
+        ipfs_uri: string;
+        content_hash: string;
+    };
+}
+
+export interface RegisterDerivativeIpResponse {
+    childIpId: Address;
+    childTokenId: string;
+    txHash: Address;
+}
+
 /**
  * Registers a derivative as an IP Asset on Story Protocol and mints an NFT for it.
  */
@@ -116,9 +132,10 @@ export async function attachLicenseTerms(request: AttachLicenseTermsRequest): Pr
     const { ipId, commercialRevShare } = request;
 
     logger.info(`Registering and attaching license terms for IP ID: ${ipId}`);
-    
-    // Step 1: Register the Commercial Use PIL with the specified revenue share
-    const registerResponse = await storyClient.license.registerCommercialUsePIL({
+
+    // Step 1: Register the Commercial Remix PIL with the specified revenue share
+    const registerResponse = await storyClient.license.registerCommercialRemixPIL({
+        defaultMintingFee: 0,
         commercialRevShare,
         currency: STORY_CONFIG.WIP_TOKEN_ADDRESS as Address,
         royaltyPolicyAddress: STORY_CONFIG.LAP_ROYALTY_POLICY_ADDRESS as Address,
@@ -141,7 +158,7 @@ export async function attachLicenseTerms(request: AttachLicenseTermsRequest): Pr
 
     return {
         licenseTermsId: licenseTermsId.toString(),
-        txHash: attachResponse.txHash,
+        txHash: attachResponse.txHash as Address,
     };
 }
 
@@ -160,44 +177,85 @@ interface MintLicenseTokenResponse {
 
 export async function mintLicenseToken(request: MintLicenseTokenRequest): Promise<MintLicenseTokenResponse> {
     const storyClient = getStoryClient();
-    const { licenseTermsId, buyerWallet, amount } = request;
-    logger.info(`Minting ${amount} license token(s) for terms ${licenseTermsId} to ${buyerWallet}`);
+    const { ipId, licenseTermsId, buyerWallet, amount } = request;
+    logger.info(`Minting ${amount} license token(s) for IP ${ipId} with terms ${licenseTermsId} to ${buyerWallet}`);
 
     const response = await storyClient.license.mintLicenseTokens({
+        licensorIpId: ipId,
         licenseTermsId: BigInt(licenseTermsId),
         licenseTemplate: STORY_CONFIG.COMMERCIAL_USE_PIL_TEMPLATE as Address,
-        licenseHolder: buyerWallet,
         amount,
         receiver: buyerWallet,
     });
 
-    if (!response.licenseTokenId) {
-        throw new Error('Failed to get licenseTokenId from minting response.');
+    if (!response.licenseTokenIds || response.licenseTokenIds.length === 0) {
+        throw new Error('Failed to get licenseTokenIds from minting response.');
     }
 
-    logger.info(`Successfully minted license token ${response.licenseTokenId}. Tx: ${response.txHash}`);
+    logger.info(`Successfully minted license tokens ${response.licenseTokenIds}. Tx: ${response.txHash}`);
 
     return {
-        licenseTokenId: response.licenseTokenId.toString(),
-        txHash: response.txHash,
+        licenseTokenId: response.licenseTokenIds[0].toString(),
+        txHash: (response.txHash || '0x') as Address,
     };
 }
 
 /**
  * Verifies if a given wallet address holds a license for a specific IP asset.
+ * Since the SDK doesn't provide isLicenseHolder, we check if an Asset record exists.
  */
 export async function verifyLicenseOwnership(ipId: Address, potentialOwner: Address): Promise<boolean> {
-  const storyClient = getStoryClient();
   logger.info(`Verifying license ownership of IP ${ipId} for ${potentialOwner}`);
 
   try {
-    const isLicenseHolder = await storyClient.license.isLicenseHolder({
-        ipId,
-        licenseHolder: potentialOwner,
+    // Import Asset model to check if user has an asset with this IP ID
+    const Asset = (await import('../models/Asset')).default;
+
+    const asset = await Asset.findOne({
+      ip_id: ipId,
+      owner_wallet: potentialOwner.toLowerCase(),
+      access_type: 'license'
     });
-    return isLicenseHolder;
+
+    return !!asset;
   } catch (error) {
     logger.error(`Failed to verify license ownership for IP ${ipId}:`, error);
     return false;
   }
+}
+
+export async function registerDerivativeIp(request: RegisterDerivativeIpRequest): Promise<RegisterDerivativeIpResponse> {
+  const storyClient = getStoryClient();
+  const { parentIpId, parentLicenseTermsId, creatorWallet, metadata } = request;
+
+  logger.info(`[STORY:REGISTER_DERIVATIVE] Registering child IP for parent ${parentIpId}`);
+
+  const response = await storyClient.ipAsset.registerDerivativeIpAsset({
+    nft: {
+      type: "mint",
+      spgNftContract: STORY_CONFIG.SPG_NFT_CONTRACT as Address,
+    },
+    derivData: {
+      parentIpIds: [parentIpId],
+      licenseTermsIds: [BigInt(parentLicenseTermsId)],
+    },
+    ipMetadata: {
+      ipMetadataURI: metadata.ipfs_uri,
+      ipMetadataHash: metadata.content_hash as `0x${string}`,
+      nftMetadataURI: metadata.ipfs_uri,
+      nftMetadataHash: metadata.content_hash as `0x${string}`,
+    },
+  });
+
+  if (!response.ipId || !response.tokenId) {
+    throw new Error('Failed to get ipId or tokenId from derivative registration response.');
+  }
+
+  logger.info(`[STORY:REGISTER_DERIVATIVE] Successfully registered child IP ${response.ipId}`);
+
+  return {
+    childIpId: response.ipId as Address,
+    childTokenId: response.tokenId.toString(),
+    txHash: (response.txHash || '0x') as Address,
+  };
 }

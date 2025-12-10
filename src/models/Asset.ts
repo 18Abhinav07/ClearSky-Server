@@ -11,6 +11,8 @@ export interface IAsset extends Document {
   license_terms_id: string;
   access_type: 'ownership' | 'license';
   commercial_rev_share: number;
+  can_create_derivatives: boolean;
+  used_in_derivatives: string[];
   purchase_price: number;
   purchase_tx_hash: string;
   royalty_paid_to_original_owner: number;
@@ -76,6 +78,14 @@ const assetSchema = new Schema<IAsset>({
   },
   commercial_rev_share: {
     type: Number,
+  },
+  can_create_derivatives: {
+    type: Boolean,
+    default: false,
+  },
+  used_in_derivatives: {
+    type: [String],
+    default: [],
   },
   purchase_price: {
     type: Number,

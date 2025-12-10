@@ -1,12 +1,18 @@
 import { Request, Response } from 'express';
+import { v4 as uuidv4 } from 'uuid';
+import { Address } from 'viem';
+
 import * as DerivativeRepository from '../database/derivative.repository';
 import * as StoryService from '../services/story.service';
+import * as IpfsService from '../services/ipfs.service';
 import { Derivative } from '../models/Derivative';
 import Asset from '../models/Asset';
 import User from '../models/User';
-import { logger } from '../utils/logger';
-import { v4 as uuidv4 } from 'uuid';
+import UserDerivative from '../models/UserDerivative';
+import UserDerivativeSale from '../models/UserDerivativeSale';
 import AQIReading from '../models/AQIReading';
+import { logger } from '../utils/logger';
+import { computeContentHash } from '../utils/hash.utils';
 import { IAQIReading } from '../types/aqi-reading.types';
 
 // Platform configuration
@@ -563,5 +569,251 @@ export const downloadDerivative = async (req: Request, res: Response) => {
     } catch (error) {
         logger.error(`[MARKETPLACE:DOWNLOAD] Download failed for derivative ${req.params.derivativeId}:`, error);
         res.status(500).json({ success: false, message: 'Server error during download.' });
+    }
+};
+
+
+// --- User-Created Derivatives ---
+
+export const createUserDerivative = async (req: Request, res: Response) => {
+    try {
+        const { parentAssetId, title, description, derivativeType, contentUri, price, creatorRevShare } = req.body;
+        const creatorWallet = req.user?.walletAddress;
+
+        if (!creatorWallet) {
+            return res.status(401).json({ success: false, message: 'Unauthorized. Please authenticate first.' });
+        }
+
+        logger.debug(`[USER_DERIVATIVE:CREATE] Request received`, { parentAssetId, creatorWallet, body: req.body });
+
+        // 1. Verify user owns license to parent asset
+        const parentAsset = await Asset.findOne({ asset_id: parentAssetId });
+        if (!parentAsset || parentAsset.owner_wallet !== creatorWallet.toLowerCase()) {
+            return res.status(403).json({ success: false, message: 'You must own a license to this asset to create a derivative.' });
+        }
+
+        // 2. Verify license allows derivative creation
+        const canCreate = await StoryService.verifyLicenseOwnership(
+            parentAsset.ip_id as `0x${string}`,
+            creatorWallet as `0x${string}`
+        );
+
+        if (!canCreate) {
+            return res.status(403).json({ success: false, message: 'Your license does not allow derivative creation, or ownership could not be verified.' });
+        }
+
+        // 3. Prepare metadata and upload to IPFS
+        const metadata = {
+            title,
+            description,
+            derivativeType,
+            contentUri, // The URI of the actual content (e.g. model file)
+            creator: creatorWallet,
+        };
+        const contentHash = computeContentHash(metadata);
+        const { ipfsHash, ipfsUri } = await IpfsService.pinJSONToIPFS(metadata, { name: `UserDerivative: ${title}` });
+
+        // 4. Register as child IP on Story Protocol
+        const { childIpId, childTokenId, txHash } = await StoryService.registerDerivativeIp({
+            parentIpId: parentAsset.ip_id as Address,
+            parentLicenseTermsId: parentAsset.license_terms_id,
+            creatorWallet: creatorWallet as Address,
+            metadata: { ipfs_uri: ipfsUri, content_hash: `0x${contentHash}` },
+        });
+
+        logger.debug(`[USER_DERIVATIVE:CREATE] Child IP registered`, { childIpId, childTokenId });
+
+        // 5. Attach license terms to child IP (so they can sell it)
+        const { licenseTermsId } = await StoryService.attachLicenseTerms({
+            ipId: childIpId,
+            commercialRevShare: creatorRevShare,
+        });
+
+        // 6. Create UserDerivative record
+        const userDerivative = new UserDerivative({
+            creator_wallet: creatorWallet.toLowerCase(),
+            parent_asset_id: parentAssetId,
+            parent_ip_id: parentAsset.ip_id,
+            child_ip_id: childIpId,
+            child_token_id: childTokenId,
+            title,
+            description,
+            derivative_type: derivativeType,
+            content_uri: contentUri,
+            ipfs_hash: ipfsHash,
+            price,
+            creator_rev_share: creatorRevShare,
+            license_terms_id: licenseTermsId,
+            is_listed: true,
+        });
+        await userDerivative.save();
+
+        // 7. Update parent asset
+        await Asset.updateOne(
+            { asset_id: parentAssetId },
+            { $push: { used_in_derivatives: userDerivative.user_derivative_id } }
+        );
+
+        logger.info(`[USER_DERIVATIVE:CREATE] Created successfully`, { userDerivativeId: userDerivative.user_derivative_id, childIpId });
+
+        res.status(201).json({
+            success: true,
+            message: 'Derivative created and listed successfully!',
+            data: {
+                user_derivative_id: userDerivative.user_derivative_id,
+                child_ip_id: childIpId,
+                child_token_id: childTokenId,
+                tx_hash: txHash,
+                royalty_info: {
+                    platform_earns: `Platform automatically receives 10% of all sales via parent IP relationship.`,
+                    creator_earns: `${creatorRevShare}% of further derivatives from your new IP.`,
+                },
+            },
+        });
+
+    } catch (error) {
+        logger.error(`[USER_DERIVATIVE:CREATE] Failed to create user derivative:`, {
+            error: error instanceof Error ? error.message : 'Unknown error',
+            stack: error instanceof Error ? error.stack : undefined,
+        });
+        res.status(500).json({ success: false, message: 'Server error during derivative creation.' });
+    }
+};
+
+export const purchaseUserDerivative = async (req: Request, res: Response) => {
+    try {
+        const { userDerivativeId } = req.params;
+        const { buyerWallet } = req.body;
+
+        logger.debug(`[USER_DERIVATIVE:PURCHASE] Purchase initiated`, { userDerivativeId, buyerWallet });
+
+        if (!buyerWallet) {
+            return res.status(400).json({ success: false, message: 'Buyer wallet address is required.' });
+        }
+
+        const userDerivative = await UserDerivative.findOne({ user_derivative_id: userDerivativeId });
+
+        if (!userDerivative || !userDerivative.is_listed) {
+            return res.status(404).json({ success: false, message: 'This user-created derivative is not available for purchase.' });
+        }
+
+        // 1. Mint license token for buyer
+        const { licenseTokenId, txHash } = await StoryService.mintLicenseToken({
+            ipId: userDerivative.child_ip_id as Address,
+            licenseTermsId: userDerivative.license_terms_id,
+            buyerWallet: buyerWallet as Address,
+            amount: 1,
+        });
+
+        // 2. Record sale
+        const sale = new UserDerivativeSale({
+            user_derivative_id: userDerivativeId,
+            buyer_wallet: buyerWallet.toLowerCase(),
+            price: userDerivative.price,
+            license_token_id: licenseTokenId,
+        });
+        await sale.save();
+
+        // 3. Update derivative stats
+        await UserDerivative.updateOne(
+            { user_derivative_id: userDerivativeId },
+            { $inc: { total_sales: 1, total_revenue: userDerivative.price } }
+        );
+
+        // 4. Create asset record for buyer
+        const assetId = `asset_${uuidv4()}`;
+        const asset = new Asset({
+            asset_id: assetId,
+            owner_wallet: buyerWallet.toLowerCase(),
+            derivative_id: userDerivativeId, // Linking to the user derivative ID
+            ip_id: userDerivative.child_ip_id,
+            token_id: userDerivative.child_token_id, // This is the NFT of the derivative IP
+            license_token_id: licenseTokenId,
+            license_terms_id: userDerivative.license_terms_id,
+            access_type: 'license',
+            purchase_price: userDerivative.price,
+            purchase_tx_hash: txHash,
+            can_create_derivatives: true, // License grants right to create more derivatives
+        });
+        await asset.save();
+        
+        // 5. Update buyer's user record
+        await User.updateOne(
+            { walletAddress: buyerWallet.toLowerCase() },
+            { $push: { assets: assetId } },
+            { upsert: true }
+        );
+
+        logger.info(`[USER_DERIVATIVE:PURCHASE] Sale completed`, {
+            user_derivative_id: userDerivativeId,
+            buyer: buyerWallet,
+            price: userDerivative.price,
+            asset_id: assetId,
+        });
+
+        res.status(200).json({
+            success: true,
+            message: 'User derivative licensed successfully!',
+            data: {
+                asset_id: assetId,
+                license_token_id: licenseTokenId,
+                tx_hash: txHash,
+                you_can_now: 'Create your own derivatives from this asset!',
+                royalty_info: {
+                    creator_earns: `${userDerivative.creator_rev_share}% if you create derivatives from this.`,
+                    platform_earns: '10% from the entire chain is captured automatically by the root license.',
+                },
+            },
+        });
+
+    } catch (error) {
+        logger.error(`[USER_DERIVATIVE:PURCHASE] Failed to purchase user derivative:`, {
+            error: error instanceof Error ? error.message : 'Unknown error',
+            stack: error instanceof Error ? error.stack : undefined,
+        });
+        res.status(500).json({ success: false, message: 'Server error during user derivative purchase.' });
+    }
+};
+
+export const listUserCreations = async (req: Request, res: Response) => {
+    try {
+        const { walletAddress } = req.params;
+        const userDerivatives = await UserDerivative.find({ creator_wallet: walletAddress.toLowerCase() }).lean();
+
+        res.status(200).json({
+            success: true,
+            data: userDerivatives,
+        });
+
+    } catch (error) {
+        logger.error(`[USER_DERIVATIVE:LIST_CREATIONS] Failed to list user creations:`, {
+            error: error instanceof Error ? error.message : 'Unknown error',
+        });
+        res.status(500).json({ success: false, message: 'Server error.' });
+    }
+};
+
+export const browseUserDerivatives = async (req: Request, res: Response) => {
+    try {
+        const { derivativeType, minPrice, maxPrice, creatorWallet } = req.query;
+        const filter: any = { is_listed: true };
+
+        if (derivativeType) filter.derivative_type = derivativeType;
+        if (creatorWallet) filter.creator_wallet = (creatorWallet as string).toLowerCase();
+        if (minPrice) filter.price = { ...filter.price, $gte: Number(minPrice) };
+        if (maxPrice) filter.price = { ...filter.price, $lte: Number(maxPrice) };
+        
+        const userDerivatives = await UserDerivative.find(filter).sort({ createdAt: -1 }).lean();
+
+        res.status(200).json({
+            success: true,
+            data: userDerivatives,
+        });
+
+    } catch (error) {
+        logger.error(`[USER_DERIVATIVE:BROWSE] Failed to browse user derivatives:`, {
+            error: error instanceof Error ? error.message : 'Unknown error',
+        });
+        res.status(500).json({ success: false, message: 'Server error.' });
     }
 };

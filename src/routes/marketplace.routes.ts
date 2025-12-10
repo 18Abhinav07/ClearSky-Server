@@ -1,41 +1,39 @@
 import { Router } from 'express';
 import * as marketplaceController from '../controllers/marketplace.controller';
-import { authenticate } from '../middleware/auth'; // Assuming a generic auth middleware exists
+import { authenticate } from '../middleware/auth';
 
 const router = Router();
 
-// @route   GET /api/v1/marketplace/derivatives
-// @desc    List all available derivatives for sale with filtering
-// @access  Public
+// --- Platform Derivatives ---
+
 router.get('/derivatives', marketplaceController.listDerivatives);
-
-// @route   GET /api/v1/marketplace/derivatives/:derivativeId
-// @desc    Get detailed information about a specific derivative
-// @access  Public
 router.get('/derivatives/:derivativeId', marketplaceController.getDerivativeDetails);
-
-// @route   POST /api/v1/marketplace/purchase/:derivativeId
-// @desc    Purchase and mint a single derivative
-// @access  Public (or authenticated, depending on product requirements)
 router.post('/purchase/:derivativeId', marketplaceController.purchaseDerivative);
-
-// @route   POST /api/v1/marketplace/purchase/bulk
-// @desc    Bulk purchase multiple derivatives by ID or filter
-// @access  Public
 router.post('/purchase/bulk', marketplaceController.bulkPurchaseDerivatives);
-
-// @route   GET /api/v1/marketplace/assets/:walletAddress
-// @desc    Get all assets owned by a wallet address
-// @access  Public
 router.get('/assets/:walletAddress', marketplaceController.getUserAssets);
+router.get('/download/:derivativeId', authenticate, marketplaceController.downloadDerivative);
 
-// @route   GET /api/v1/marketplace/download/:derivativeId
-// @desc    Download derivative content after verifying ownership
+// --- User-Created Derivatives ---
+
+// @route   POST /api/v1/marketplace/derivatives/create
+// @desc    Create a new derivative from a licensed asset
 // @access  Authenticated
-router.get(
-    '/download/:derivativeId',
-    authenticate, // This middleware should attach the user's wallet address to the request
-    marketplaceController.downloadDerivative
-);
+router.post('/derivatives/create', authenticate, marketplaceController.createUserDerivative);
+
+// @route   GET /api/v1/marketplace/derivatives/my-creations/:walletAddress
+// @desc    List all derivatives created by a specific user
+// @access  Public
+router.get('/derivatives/my-creations/:walletAddress', marketplaceController.listUserCreations);
+
+// @route   GET /api/v1/marketplace/derivatives/community
+// @desc    Browse all listed user-created derivatives
+// @access  Public
+router.get('/derivatives/community', marketplaceController.browseUserDerivatives);
+
+// @route   POST /api/v1/marketplace/derivatives/purchase/:userDerivativeId
+// @desc    Purchase a license for a user-created derivative
+// @access  Public
+router.post('/derivatives/purchase/:userDerivativeId', marketplaceController.purchaseUserDerivative);
+
 
 export default router;
