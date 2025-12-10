@@ -20,18 +20,49 @@ const PLATFORM_FEE_PERCENTAGE = 10; // 10% platform fee
 const ORIGINAL_OWNER_ROYALTY_PERCENTAGE = 5; // 5% royalty to original data owner
 
 /**
+ * Normalizes derivative type input to match enum values
+ * Handles: 'creative', 'creative_derivative', etc. -> 'CREATIVE'
+ */
+function normalizeDerivativeType(input: string): string {
+    // Remove underscores and convert to uppercase
+    const normalized = input.replace(/_/g, ' ').toUpperCase().trim();
+
+    // Map common variations
+    const typeMap: Record<string, string> = {
+        'CREATIVE': 'CREATIVE',
+        'CREATIVE DERIVATIVE': 'CREATIVE',
+        'MODEL': 'MODEL',
+        'DATASET': 'DATASET',
+        'DATA SET': 'DATASET',
+        'ANALYSIS': 'ANALYSIS',
+        'VISUALIZATION': 'VISUALIZATION',
+        'VIS': 'VISUALIZATION',
+        'REPORT': 'REPORT',
+        'APPLICATION': 'APPLICATION',
+        'APP': 'APPLICATION',
+        'OTHER': 'OTHER',
+    };
+
+    return typeMap[normalized] || 'OTHER';
+}
+
+/**
  * Lists all available (MONTHLY) derivatives for sale with filtering and search capabilities.
  */
 export const listDerivatives = async (req: Request, res: Response) => {
     try {
-        logger.info(`[MARKETPLACE:LIST] Function called`, {
-            path: req.path,
-            params: JSON.stringify(req.params),
-            query: JSON.stringify(req.query)
-        });
-        logger.debug(`[MARKETPLACE] Listing derivatives request received`, {
-            query: JSON.stringify(req.query)
-        });
+        logger.info(
+            `[MARKETPLACE:LIST] Function called ${JSON.stringify({
+                path: req.path,
+                params: req.params,
+                query: req.query
+            })}`
+        );
+        logger.debug(
+            `[MARKETPLACE] Listing derivatives request received ${JSON.stringify({
+                query: req.query
+            })}`
+        );
 
         const {
             is_minted,
@@ -52,9 +83,11 @@ export const listDerivatives = async (req: Request, res: Response) => {
             filter.type = type;
         }
 
-        logger.debug(`[MARKETPLACE] Filter constructed`, {
-            filter: JSON.stringify(filter)
-        });
+        logger.debug(
+            `[MARKETPLACE] Filter constructed ${JSON.stringify({
+                filter: filter
+            })}`
+        );
 
         const derivatives = await Derivative.find(filter)
             .limit(parseInt(limit as string))
@@ -62,29 +95,43 @@ export const listDerivatives = async (req: Request, res: Response) => {
             .sort({ created_at: -1 })
             .lean();
 
-        logger.debug(`[MARKETPLACE] Found ${derivatives.length} derivatives`, {
-            count: derivatives.length,
-            filter: JSON.stringify(filter)
-        });
+        logger.debug(
+            `[MARKETPLACE] Found ${derivatives.length} derivatives ${JSON.stringify({
+                count: derivatives.length,
+                filter: filter
+            })}`
+        );
 
         // Enrich derivatives with metadata
         const enrichedDerivatives = await Promise.all(
             derivatives.map(async (deriv) => {
-                logger.debug(`[MARKETPLACE] Enriching derivative ${deriv.derivative_id}`, {
-                    derivative_id: deriv.derivative_id,
-                    parent_data_ids: JSON.stringify(deriv.parent_data_ids)
-                });
+                logger.debug(
+                    `[MARKETPLACE] Enriching derivative ${
+                        deriv.derivative_id
+                    } ${JSON.stringify({
+                        derivative_id: deriv.derivative_id,
+                        parent_data_ids: deriv.parent_data_ids
+                    })}`
+                );
 
                 // Fetch primitive data for this derivative
                 const primitiveData = await AQIReading.find({
                     reading_id: { $in: deriv.parent_data_ids }
                 }).lean();
 
-                logger.debug(`[MARKETPLACE] Found ${primitiveData.length} primitive readings for derivative ${deriv.derivative_id}`, {
-                    derivative_id: deriv.derivative_id,
-                    primitive_count: primitiveData.length,
-                    primitive_ids: JSON.stringify(primitiveData.map((p: IAQIReading) => p.reading_id))
-                });
+                logger.debug(
+                    `[MARKETPLACE] Found ${
+                        primitiveData.length
+                    } primitive readings for derivative ${
+                        deriv.derivative_id
+                    } ${JSON.stringify({
+                        derivative_id: deriv.derivative_id,
+                        primitive_count: primitiveData.length,
+                        primitive_ids: primitiveData.map(
+                            (p: IAQIReading) => p.reading_id
+                        )
+                    })}`
+                );
 
                 return {
                     ...deriv,
@@ -94,9 +141,11 @@ export const listDerivatives = async (req: Request, res: Response) => {
             })
         );
 
-        logger.debug(`[MARKETPLACE] Successfully enriched all derivatives`, {
-            total_count: enrichedDerivatives.length
-        });
+        logger.debug(
+            `[MARKETPLACE] Successfully enriched all derivatives ${JSON.stringify({
+                total_count: enrichedDerivatives.length
+            })}`
+        );
 
         res.status(200).json({
             success: true,
@@ -108,7 +157,9 @@ export const listDerivatives = async (req: Request, res: Response) => {
             },
         });
     } catch (error) {
-        logger.error('[MARKETPLACE] Failed to list derivatives:', error);
+        logger.error(
+            `[MARKETPLACE] Failed to list derivatives: ${JSON.stringify(error)}`
+        );
         res.status(500).json({ success: false, message: 'Server error' });
     }
 };
@@ -120,22 +171,28 @@ export const getDerivativeDetails = async (req: Request, res: Response) => {
     try {
         const { derivativeId } = req.params;
 
-        logger.info(`[MARKETPLACE:DETAILS] Function called`, {
-            path: req.path,
-            params: JSON.stringify(req.params),
-            query: JSON.stringify(req.query),
-            derivativeId
-        });
-        logger.debug(`[MARKETPLACE] Get derivative details request`, {
-            derivative_id: derivativeId
-        });
+        logger.info(
+            `[MARKETPLACE:DETAILS] Function called ${JSON.stringify({
+                path: req.path,
+                params: req.params,
+                query: req.query,
+                derivativeId
+            })}`
+        );
+        logger.debug(
+            `[MARKETPLACE] Get derivative details request ${JSON.stringify({
+                derivative_id: derivativeId
+            })}`
+        );
 
         const derivative = await Derivative.findOne({ derivative_id: derivativeId }).lean();
 
         if (!derivative) {
-            logger.debug(`[MARKETPLACE] Derivative not found`, {
-                derivative_id: derivativeId
-            });
+            logger.debug(
+                `[MARKETPLACE] Derivative not found ${JSON.stringify({
+                    derivative_id: derivativeId
+                })}`
+            );
             return res.status(404).json({ success: false, message: 'Derivative not found.' });
         }
 
@@ -144,12 +201,14 @@ export const getDerivativeDetails = async (req: Request, res: Response) => {
             reading_id: { $in: derivative.parent_data_ids }
         }).lean();
 
-        logger.debug(`[MARKETPLACE] Derivative details retrieved`, {
-            derivative_id: derivativeId,
-            derivative: JSON.stringify(derivative),
-            primitive_data_count: primitiveData.length,
-            primitive_data: JSON.stringify(primitiveData)
-        });
+        logger.debug(
+            `[MARKETPLACE] Derivative details retrieved ${JSON.stringify({
+                derivative_id: derivativeId,
+                // derivative: derivative,
+                primitive_data_count: primitiveData.length,
+                // primitive_data: primitiveData
+            })}`
+        );
 
         res.status(200).json({
             success: true,
@@ -159,7 +218,11 @@ export const getDerivativeDetails = async (req: Request, res: Response) => {
             },
         });
     } catch (error) {
-        logger.error(`[MARKETPLACE] Failed to get derivative details:`, error);
+        logger.error(
+            `[MARKETPLACE] Failed to get derivative details: ${JSON.stringify(
+                error
+            )}`
+        );
         res.status(500).json({ success: false, message: 'Server error' });
     }
 };
@@ -174,40 +237,52 @@ export const purchaseDerivative = async (req: Request, res: Response) => {
         const { buyerWallet } = req.body;
         const commercialRevShare = 10; // Platform gets 10% of buyer's derivatives
 
-        logger.debug(`[MARKETPLACE:PURCHASE] Purchase initiated`, {
-            derivative_id: derivativeId,
-            buyer_wallet: buyerWallet,
-            request_body: JSON.stringify(req.body)
-        });
+        logger.debug(
+            `[MARKETPLACE:PURCHASE] Purchase initiated ${JSON.stringify({
+                derivative_id: derivativeId,
+                buyer_wallet: buyerWallet,
+                request_body: req.body
+            })}`
+        );
 
         if (!buyerWallet) {
-            logger.debug(`[MARKETPLACE:PURCHASE] Missing buyer wallet`, {
-                derivative_id: derivativeId
-            });
+            logger.debug(
+                `[MARKETPLACE:PURCHASE] Missing buyer wallet ${JSON.stringify({
+                    derivative_id: derivativeId
+                })}`
+            );
             return res.status(400).json({ success: false, message: 'Buyer wallet address is required.' });
         }
 
         if (!/^0x[a-fA-F0-9]{40}$/.test(buyerWallet)) {
-            logger.debug(`[MARKETPLACE:PURCHASE] Invalid wallet format`, {
-                derivative_id: derivativeId,
-                buyer_wallet: buyerWallet
-            });
+            logger.debug(
+                `[MARKETPLACE:PURCHASE] Invalid wallet format ${JSON.stringify({
+                    derivative_id: derivativeId,
+                    buyer_wallet: buyerWallet
+                })}`
+            );
             return res.status(400).json({ success: false, message: 'Invalid wallet address format.' });
         }
 
         const derivative = await Derivative.findOne({ derivative_id: derivativeId });
 
         if (!derivative) {
-            logger.debug(`[MARKETPLACE:PURCHASE] Derivative not found`, {
-                derivative_id: derivativeId
-            });
+            logger.debug(
+                `[MARKETPLACE:PURCHASE] Derivative not found ${JSON.stringify({
+                    derivative_id: derivativeId
+                })}`
+            );
             return res.status(404).json({ success: false, message: 'Derivative not found.' });
         }
 
         if (derivative.is_minted) {
-            logger.debug(`[MARKETPLACE:PURCHASE] Derivative already processed`, {
-                derivative_id: derivativeId,
-            });
+            logger.debug(
+                `[MARKETPLACE:PURCHASE] Derivative already processed ${JSON.stringify(
+                    {
+                        derivative_id: derivativeId
+                    }
+                )}`
+            );
             return res.status(400).json({ success: false, message: 'This derivative has already been sold.' });
         }
 
@@ -221,20 +296,36 @@ export const purchaseDerivative = async (req: Request, res: Response) => {
         const platformFee = (basePrice * PLATFORM_FEE_PERCENTAGE) / 100;
         const royalty = (basePrice * ORIGINAL_OWNER_ROYALTY_PERCENTAGE) / 100;
 
-        logger.info(`[MARKETPLACE:PURCHASE] Starting IP Asset registration`, {
-            derivative_id: derivativeId
-        });
+        logger.info(
+            `[MARKETPLACE:PURCHASE] Starting IP Asset registration ${JSON.stringify(
+                {
+                    derivative_id: derivativeId
+                }
+            )}`
+        );
 
         // STEP 1: Register IP Asset (Platform owns)
         const { ipId, tokenId, txHash } = await StoryService.registerAndMintIpAsset(derivative);
-        logger.debug(`[MARKETPLACE:PURCHASE] IP Asset registered`, { derivative_id: derivativeId, ip_id: ipId, token_id: tokenId });
+        logger.debug(
+            `[MARKETPLACE:PURCHASE] IP Asset registered ${JSON.stringify({
+                derivative_id: derivativeId,
+                ip_id: ipId,
+                token_id: tokenId
+            })}`
+        );
 
         // STEP 2: Attach License Terms with revenue share
         const { licenseTermsId, txHash: licenseTermsTxHash } = await StoryService.attachLicenseTerms({
             ipId,
             commercialRevShare,
         });
-        logger.debug(`[MARKETPLACE:PURCHASE] License terms attached`, { derivative_id: derivativeId, ip_id: ipId, license_terms_id: licenseTermsId });
+        logger.debug(
+            `[MARKETPLACE:PURCHASE] License terms attached ${JSON.stringify({
+                derivative_id: derivativeId,
+                ip_id: ipId,
+                license_terms_id: licenseTermsId
+            })}`
+        );
 
         // STEP 3: Mint License Token for buyer
         const { licenseTokenId, txHash: licenseTxHash } = await StoryService.mintLicenseToken({
@@ -243,7 +334,14 @@ export const purchaseDerivative = async (req: Request, res: Response) => {
             buyerWallet: buyerWallet as `0x${string}`,
             amount: 1,
         });
-        logger.debug(`[MARKETPLACE:PURCHASE] License token minted for buyer`, { derivative_id: derivativeId, license_token_id: licenseTokenId });
+        logger.debug(
+            `[MARKETPLACE:PURCHASE] License token minted for buyer ${JSON.stringify(
+                {
+                    derivative_id: derivativeId,
+                    license_token_id: licenseTokenId
+                }
+            )}`
+        );
 
         // STEP 4: Update derivative record
         derivative.ip_id = ipId;
@@ -251,7 +349,11 @@ export const purchaseDerivative = async (req: Request, res: Response) => {
         derivative.license_terms_id = licenseTermsId;
         derivative.is_minted = true;
         await derivative.save();
-        logger.debug(`[MARKETPLACE:PURCHASE] Derivative record updated`, { derivative_id: derivativeId });
+        logger.debug(
+            `[MARKETPLACE:PURCHASE] Derivative record updated ${JSON.stringify({
+                derivative_id: derivativeId
+            })}`
+        );
 
         // STEP 5: Create asset record
         const assetId = `asset_${uuidv4()}`;
@@ -278,7 +380,11 @@ export const purchaseDerivative = async (req: Request, res: Response) => {
             },
         });
         await asset.save();
-        logger.debug(`[MARKETPLACE:PURCHASE] Asset record created`, { asset_id: assetId });
+        logger.debug(
+            `[MARKETPLACE:PURCHASE] Asset record created ${JSON.stringify({
+                asset_id: assetId
+            })}`
+        );
 
         // Step 6: Update buyer's user record
         let buyer = await User.findOne({ walletAddress: buyerWallet.toLowerCase() });
@@ -288,14 +394,22 @@ export const purchaseDerivative = async (req: Request, res: Response) => {
             buyer.assets.push(assetId);
         }
         await buyer.save();
-        logger.debug(`[MARKETPLACE:PURCHASE] Buyer user record updated`, { buyer_wallet: buyerWallet });
+        logger.debug(
+            `[MARKETPLACE:PURCHASE] Buyer user record updated ${JSON.stringify({
+                buyer_wallet: buyerWallet
+            })}`
+        );
 
-        logger.info(`[MARKETPLACE:PURCHASE] Purchase completed successfully`, {
-            derivative_id: derivativeId,
-            asset_id: assetId,
-            ip_id: ipId,
-            license_token_id: licenseTokenId
-        });
+        logger.info(
+            `[MARKETPLACE:PURCHASE] Purchase completed successfully ${JSON.stringify(
+                {
+                    derivative_id: derivativeId,
+                    asset_id: assetId,
+                    ip_id: ipId,
+                    license_token_id: licenseTokenId
+                }
+            )}`
+        );
 
         res.status(200).json({
             success: true,
@@ -324,12 +438,16 @@ export const purchaseDerivative = async (req: Request, res: Response) => {
             },
         });
     } catch (error) {
-        logger.error(`[MARKETPLACE:PURCHASE] Purchase failed for derivative ${req.params.derivativeId}:`, {
-            error: error instanceof Error ? error.message : 'Unknown error',
-            stack: error instanceof Error ? error.stack : undefined,
-            derivative_id: req.params.derivativeId,
-            buyer_wallet: req.body.buyerWallet
-        });
+        logger.error(
+            `[MARKETPLACE:PURCHASE] Purchase failed for derivative ${
+                req.params.derivativeId
+            }: ${JSON.stringify({
+                error: error instanceof Error ? error.message : 'Unknown error',
+                stack: error instanceof Error ? error.stack : undefined,
+                derivative_id: req.params.derivativeId,
+                buyer_wallet: req.body.buyerWallet
+            })}`
+        );
         res.status(500).json({ success: false, message: 'Server error during purchase.' });
     }
 };
@@ -342,11 +460,15 @@ export const bulkPurchaseDerivatives = async (req: Request, res: Response) => {
         const { buyerWallet, derivativeIds, filter } = req.body;
         const commercialRevShare = 10; // Platform gets 10%
 
-        logger.debug(`[MARKETPLACE:BULK_PURCHASE] Bulk purchase initiated`, {
-            buyer_wallet: buyerWallet,
-            derivative_ids: JSON.stringify(derivativeIds),
-            filter: JSON.stringify(filter)
-        });
+        logger.debug(
+            `[MARKETPLACE:BULK_PURCHASE] Bulk purchase initiated ${JSON.stringify(
+                {
+                    buyer_wallet: buyerWallet,
+                    derivative_ids: derivativeIds,
+                    filter: filter
+                }
+            )}`
+        );
 
         if (!buyerWallet) {
             return res.status(400).json({ success: false, message: 'Buyer wallet address is required.' });
@@ -377,7 +499,9 @@ export const bulkPurchaseDerivatives = async (req: Request, res: Response) => {
 
         for (const derivative of derivatives) {
             try {
-                logger.debug(`[MARKETPLACE:BULK_PURCHASE] Processing derivative ${derivative.derivative_id}`);
+                logger.debug(
+                    `[MARKETPLACE:BULK_PURCHASE] Processing derivative ${derivative.derivative_id}`
+                );
 
                 const { ipId, tokenId, txHash } = await StoryService.registerAndMintIpAsset(derivative);
                 
@@ -431,9 +555,16 @@ export const bulkPurchaseDerivatives = async (req: Request, res: Response) => {
                     license_token_id: licenseTokenId,
                 });
             } catch (error) {
-                logger.error(`[MARKETPLACE:BULK_PURCHASE] Failed to process derivative ${derivative.derivative_id}`, {
-                    error: error instanceof Error ? error.message : 'Unknown error'
-                });
+                logger.error(
+                    `[MARKETPLACE:BULK_PURCHASE] Failed to process derivative ${
+                        derivative.derivative_id
+                    } ${JSON.stringify({
+                        error:
+                            error instanceof Error
+                                ? error.message
+                                : 'Unknown error'
+                    })}`
+                );
                 results.push({
                     success: false,
                     derivative_id: derivative.derivative_id,
@@ -451,11 +582,15 @@ export const bulkPurchaseDerivatives = async (req: Request, res: Response) => {
             );
         }
 
-        logger.info(`[MARKETPLACE:BULK_PURCHASE] Bulk purchase completed`, {
-            buyer_wallet: buyerWallet,
-            successful_count: results.filter(r => r.success).length,
-            failed_count: results.filter(r => !r.success).length,
-        });
+        logger.info(
+            `[MARKETPLACE:BULK_PURCHASE] Bulk purchase completed ${JSON.stringify(
+                {
+                    buyer_wallet: buyerWallet,
+                    successful_count: results.filter((r) => r.success).length,
+                    failed_count: results.filter((r) => !r.success).length
+                }
+            )}`
+        );
 
         res.status(200).json({
             success: true,
@@ -468,7 +603,11 @@ export const bulkPurchaseDerivatives = async (req: Request, res: Response) => {
             },
         });
     } catch (error) {
-        logger.error('[MARKETPLACE:BULK_PURCHASE] Bulk purchase failed:', error);
+        logger.error(
+            `[MARKETPLACE:BULK_PURCHASE] Bulk purchase failed: ${JSON.stringify(
+                error
+            )}`
+        );
         res.status(500).json({ success: false, message: 'Server error during bulk purchase.' });
     }
 };
@@ -480,24 +619,32 @@ export const getUserAssets = async (req: Request, res: Response) => {
     try {
         const { walletAddress } = req.params;
 
-        logger.debug(`[MARKETPLACE] Get user assets request`, {
-            wallet_address: walletAddress
-        });
+        logger.debug(
+            `[MARKETPLACE] Get user assets request ${JSON.stringify({
+                wallet_address: walletAddress
+            })}`
+        );
 
         const assets = await Asset.find({ owner_wallet: walletAddress.toLowerCase() }).lean();
 
-        logger.debug(`[MARKETPLACE] Found ${assets.length} assets for user`, {
-            wallet_address: walletAddress,
-            asset_count: assets.length,
-            assets: JSON.stringify(assets)
-        });
+        logger.debug(
+            `[MARKETPLACE] Found ${assets.length} assets for user ${JSON.stringify(
+                {
+                    wallet_address: walletAddress,
+                    asset_count: assets.length,
+                    assets: assets
+                }
+            )}`
+        );
 
         res.status(200).json({
             success: true,
             data: assets,
         });
     } catch (error) {
-        logger.error('[MARKETPLACE] Failed to get user assets:', error);
+        logger.error(
+            `[MARKETPLACE] Failed to get user assets: ${JSON.stringify(error)}`
+        );
         res.status(500).json({ success: false, message: 'Server error' });
     }
 };
@@ -510,53 +657,69 @@ export const downloadDerivative = async (req: Request, res: Response) => {
         const { derivativeId } = req.params;
         const walletAddress = req.user?.walletAddress;
 
-        logger.debug(`[MARKETPLACE:DOWNLOAD] Download request received`, {
-            derivative_id: derivativeId,
-            wallet_address: walletAddress
-        });
+        logger.debug(
+            `[MARKETPLACE:DOWNLOAD] Download request received ${JSON.stringify({
+                derivative_id: derivativeId,
+                wallet_address: walletAddress
+            })}`
+        );
 
         if (!walletAddress) {
-            logger.debug(`[MARKETPLACE:DOWNLOAD] Missing wallet address`, {
-                derivative_id: derivativeId
-            });
+            logger.debug(
+                `[MARKETPLACE:DOWNLOAD] Missing wallet address ${JSON.stringify({
+                    derivative_id: derivativeId
+                })}`
+            );
             return res.status(401).json({ success: false, message: 'Unauthorized. Wallet address is missing.' });
         }
 
         const derivative = await Derivative.findOne({ derivative_id: derivativeId });
 
         if (!derivative || !derivative.is_minted || !derivative.ip_id) {
-            logger.debug(`[MARKETPLACE:DOWNLOAD] Derivative not found, not minted, or has no IP ID`, {
-                derivative_id: derivativeId,
-                found: !!derivative,
-                is_minted: derivative?.is_minted,
-                ip_id: derivative?.ip_id
-            });
+            logger.debug(
+            `[MARKETPLACE:DOWNLOAD] Derivative not found, not minted, or has no IP ID ${JSON.stringify(
+                {
+                    derivative_id: derivativeId,
+                    found: !!derivative,
+                    is_minted: derivative?.is_minted,
+                    ip_id: derivative?.ip_id
+                }
+            )}`
+        );
             return res.status(404).json({ success: false, message: 'Sold derivative not found.' });
         }
 
-        logger.debug(`[MARKETPLACE:DOWNLOAD] Verifying license ownership`, {
-            derivative_id: derivativeId,
-            ip_id: derivative.ip_id,
-            wallet_address: walletAddress
-        });
+        logger.debug(
+            `[MARKETPLACE:DOWNLOAD] Verifying license ownership ${JSON.stringify({
+                derivative_id: derivativeId,
+                ip_id: derivative.ip_id,
+                wallet_address: walletAddress
+            })}`
+        );
 
         const hasLicense = await StoryService.verifyLicenseOwnership(derivative.ip_id as `0x${string}`, walletAddress as `0x${string}`);
 
-        logger.debug(`[MARKETPLACE:DOWNLOAD] License verification result`, {
-            derivative_id: derivativeId,
-            ip_id: derivative.ip_id,
-            wallet_address: walletAddress,
-            has_license: hasLicense
-        });
+        logger.debug(
+            `[MARKETPLACE:DOWNLOAD] License verification result ${JSON.stringify(
+                {
+                    derivative_id: derivativeId,
+                    ip_id: derivative.ip_id,
+                    wallet_address: walletAddress,
+                    has_license: hasLicense
+                }
+            )}`
+        );
 
         if (!hasLicense) {
             return res.status(403).json({ success: false, message: 'You do not have a valid license to download this derivative.' });
         }
 
-        logger.info(`[MARKETPLACE:DOWNLOAD] Download access granted`, {
-            derivative_id: derivativeId,
-            wallet_address: walletAddress
-        });
+        logger.info(
+            `[MARKETPLACE:DOWNLOAD] Download access granted ${JSON.stringify({
+                derivative_id: derivativeId,
+                wallet_address: walletAddress
+            })}`
+        );
 
         res.status(200).json({
             success: true,
@@ -567,7 +730,11 @@ export const downloadDerivative = async (req: Request, res: Response) => {
             },
         });
     } catch (error) {
-        logger.error(`[MARKETPLACE:DOWNLOAD] Download failed for derivative ${req.params.derivativeId}:`, error);
+        logger.error(
+            `[MARKETPLACE:DOWNLOAD] Download failed for derivative ${
+                req.params.derivativeId
+            }: ${JSON.stringify(error)}`
+        );
         res.status(500).json({ success: false, message: 'Server error during download.' });
     }
 };
@@ -584,7 +751,13 @@ export const createUserDerivative = async (req: Request, res: Response) => {
             return res.status(401).json({ success: false, message: 'Unauthorized. Please authenticate first.' });
         }
 
-        logger.debug(`[USER_DERIVATIVE:CREATE] Request received`, { parentAssetId, creatorWallet, body: req.body });
+        logger.debug(
+            `[USER_DERIVATIVE:CREATE] Request received ${JSON.stringify({
+                parentAssetId,
+                creatorWallet,
+                body: req.body
+            })}`
+        );
 
         // 1. Verify user owns license to parent asset
         const parentAsset = await Asset.findOne({ asset_id: parentAssetId });
@@ -621,7 +794,12 @@ export const createUserDerivative = async (req: Request, res: Response) => {
             metadata: { ipfs_uri: ipfsUri, content_hash: `0x${contentHash}` },
         });
 
-        logger.debug(`[USER_DERIVATIVE:CREATE] Child IP registered`, { childIpId, childTokenId });
+        logger.debug(
+            `[USER_DERIVATIVE:CREATE] Child IP registered ${JSON.stringify({
+                childIpId,
+                childTokenId
+            })}`
+        );
 
         // 5. Attach license terms to child IP (so they can sell it)
         const { licenseTermsId } = await StoryService.attachLicenseTerms({
@@ -630,6 +808,7 @@ export const createUserDerivative = async (req: Request, res: Response) => {
         });
 
         // 6. Create UserDerivative record
+        const normalizedType = normalizeDerivativeType(derivativeType);
         const userDerivative = new UserDerivative({
             creator_wallet: creatorWallet.toLowerCase(),
             parent_asset_id: parentAssetId,
@@ -638,7 +817,7 @@ export const createUserDerivative = async (req: Request, res: Response) => {
             child_token_id: childTokenId,
             title,
             description,
-            derivative_type: derivativeType,
+            derivative_type: normalizedType,
             content_uri: contentUri,
             ipfs_hash: ipfsHash,
             price,
@@ -654,7 +833,12 @@ export const createUserDerivative = async (req: Request, res: Response) => {
             { $push: { used_in_derivatives: userDerivative.user_derivative_id } }
         );
 
-        logger.info(`[USER_DERIVATIVE:CREATE] Created successfully`, { userDerivativeId: userDerivative.user_derivative_id, childIpId });
+        logger.info(
+            `[USER_DERIVATIVE:CREATE] Created successfully ${JSON.stringify({
+                userDerivativeId: userDerivative.user_derivative_id,
+                childIpId
+            })}`
+        );
 
         res.status(201).json({
             success: true,
@@ -672,10 +856,15 @@ export const createUserDerivative = async (req: Request, res: Response) => {
         });
 
     } catch (error) {
-        logger.error(`[USER_DERIVATIVE:CREATE] Failed to create user derivative:`, {
-            error: error instanceof Error ? error.message : 'Unknown error',
-            stack: error instanceof Error ? error.stack : undefined,
-        });
+        logger.error(
+            `[USER_DERIVATIVE:CREATE] Failed to create user derivative: ${JSON.stringify(
+                {
+                    error:
+                        error instanceof Error ? error.message : 'Unknown error',
+                    stack: error instanceof Error ? error.stack : undefined
+                }
+            )}`
+        );
         res.status(500).json({ success: false, message: 'Server error during derivative creation.' });
     }
 };
@@ -685,7 +874,12 @@ export const purchaseUserDerivative = async (req: Request, res: Response) => {
         const { userDerivativeId } = req.params;
         const { buyerWallet } = req.body;
 
-        logger.debug(`[USER_DERIVATIVE:PURCHASE] Purchase initiated`, { userDerivativeId, buyerWallet });
+        logger.debug(
+            `[USER_DERIVATIVE:PURCHASE] Purchase initiated ${JSON.stringify({
+                userDerivativeId,
+                buyerWallet
+            })}`
+        );
 
         if (!buyerWallet) {
             return res.status(400).json({ success: false, message: 'Buyer wallet address is required.' });
@@ -744,12 +938,14 @@ export const purchaseUserDerivative = async (req: Request, res: Response) => {
             { upsert: true }
         );
 
-        logger.info(`[USER_DERIVATIVE:PURCHASE] Sale completed`, {
-            user_derivative_id: userDerivativeId,
-            buyer: buyerWallet,
-            price: userDerivative.price,
-            asset_id: assetId,
-        });
+        logger.info(
+            `[USER_DERIVATIVE:PURCHASE] Sale completed ${JSON.stringify({
+                user_derivative_id: userDerivativeId,
+                buyer: buyerWallet,
+                price: userDerivative.price,
+                asset_id: assetId
+            })}`
+        );
 
         res.status(200).json({
             success: true,
@@ -767,10 +963,15 @@ export const purchaseUserDerivative = async (req: Request, res: Response) => {
         });
 
     } catch (error) {
-        logger.error(`[USER_DERIVATIVE:PURCHASE] Failed to purchase user derivative:`, {
-            error: error instanceof Error ? error.message : 'Unknown error',
-            stack: error instanceof Error ? error.stack : undefined,
-        });
+        logger.error(
+            `[USER_DERIVATIVE:PURCHASE] Failed to purchase user derivative: ${JSON.stringify(
+                {
+                    error:
+                        error instanceof Error ? error.message : 'Unknown error',
+                    stack: error instanceof Error ? error.stack : undefined
+                }
+            )}`
+        );
         res.status(500).json({ success: false, message: 'Server error during user derivative purchase.' });
     }
 };
@@ -786,9 +987,14 @@ export const listUserCreations = async (req: Request, res: Response) => {
         });
 
     } catch (error) {
-        logger.error(`[USER_DERIVATIVE:LIST_CREATIONS] Failed to list user creations:`, {
-            error: error instanceof Error ? error.message : 'Unknown error',
-        });
+        logger.error(
+            `[USER_DERIVATIVE:LIST_CREATIONS] Failed to list user creations: ${JSON.stringify(
+                {
+                    error:
+                        error instanceof Error ? error.message : 'Unknown error'
+                }
+            )}`
+        );
         res.status(500).json({ success: false, message: 'Server error.' });
     }
 };

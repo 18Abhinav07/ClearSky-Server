@@ -154,11 +154,11 @@ export async function attachLicenseTerms(request: AttachLicenseTermsRequest): Pr
         licenseTemplate: STORY_CONFIG.COMMERCIAL_USE_PIL_TEMPLATE as Address,
     });
 
-    logger.info(`Successfully attached license ${licenseTermsId} to IP ${ipId}. Tx: ${attachResponse.txHash}`);
+    logger.info(`Successfully attached license ${licenseTermsId} to IP ${ipId}. Tx: ${attachResponse.txHash || '0x'}`);
 
     return {
         licenseTermsId: licenseTermsId.toString(),
-        txHash: attachResponse.txHash as Address,
+        txHash: (attachResponse.txHash || '0x') as Address,
     };
 }
 

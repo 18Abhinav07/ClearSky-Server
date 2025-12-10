@@ -10,7 +10,7 @@ export interface IUserDerivative extends Document {
   child_token_id: string;
   title: string;
   description: string;
-  derivative_type: 'MODEL' | 'DATASET' | 'ANALYSIS';
+  derivative_type: 'MODEL' | 'DATASET' | 'ANALYSIS' | 'VISUALIZATION' | 'REPORT' | 'APPLICATION' | 'CREATIVE' | 'OTHER';
   content_uri: string;
   ipfs_hash: string;
   price: number;
@@ -67,7 +67,7 @@ const userDerivativeSchema = new Schema<IUserDerivative>({
   },
   derivative_type: {
     type: String,
-    enum: ['MODEL', 'DATASET', 'ANALYSIS'],
+    enum: ['MODEL', 'DATASET', 'ANALYSIS', 'VISUALIZATION', 'REPORT', 'APPLICATION', 'CREATIVE', 'OTHER'],
     required: true,
   },
   content_uri: {

@@ -106,6 +106,9 @@ function getCallerInfo() {
         file.includes("internal/") ||
         file.includes("node:") ||
         file.includes("/logger/logger") ||
+        file.includes("/utils/logger") ||
+        file.endsWith("logger.ts") ||
+        file.endsWith("logger.js") ||
         file.includes("_stream_transform.js")
       ) {
         continue;

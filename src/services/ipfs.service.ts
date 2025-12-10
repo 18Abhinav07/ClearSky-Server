@@ -65,11 +65,13 @@ export async function pinJSONToIPFS(
     const ipfsHash = result.IpfsHash;
     const ipfsUri = `ipfs://${ipfsHash}`;
 
-    logger.info('Successfully pinned to IPFS', {
-      ipfsHash,
-      pinSize: result.PinSize,
-      timestamp: result.Timestamp
-    });
+    logger.info(
+      `Successfully pinned to IPFS ${JSON.stringify({
+        ipfsHash,
+        pinSize: result.PinSize,
+        timestamp: result.Timestamp
+      })}`
+    );
 
     return {
       ipfsHash,
@@ -77,9 +79,11 @@ export async function pinJSONToIPFS(
       pinSize: result.PinSize
     };
   } catch (error) {
-    logger.error('Failed to pin JSON to IPFS', {
-      error: error instanceof Error ? error.message : 'Unknown error'
-    });
+    logger.error(
+      `Failed to pin JSON to IPFS ${JSON.stringify({
+        error: error instanceof Error ? error.message : 'Unknown error'
+      })}`
+    );
     throw error;
   }
 }
@@ -93,12 +97,14 @@ export async function unpinFromIPFS(ipfsHash: string): Promise<void> {
 
   try {
     await client.unpin(ipfsHash);
-    logger.info('Successfully unpinned from IPFS', { ipfsHash });
+    logger.info(`Successfully unpinned from IPFS ${JSON.stringify({ ipfsHash })}`);
   } catch (error) {
-    logger.error('Failed to unpin from IPFS', {
-      ipfsHash,
-      error: error instanceof Error ? error.message : 'Unknown error'
-    });
+    logger.error(
+      `Failed to unpin from IPFS ${JSON.stringify({
+        ipfsHash,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      })}`
+    );
     throw error;
   }
 }
@@ -124,9 +130,11 @@ export async function testPinataConnection(): Promise<boolean> {
     logger.info('Pinata connection test successful');
     return true;
   } catch (error) {
-    logger.error('Pinata connection test failed', {
-      error: error instanceof Error ? error.message : 'Unknown error'
-    });
+    logger.error(
+      `Pinata connection test failed ${JSON.stringify({
+        error: error instanceof Error ? error.message : 'Unknown error'
+      })}`
+    );
     return false;
   }
 }
