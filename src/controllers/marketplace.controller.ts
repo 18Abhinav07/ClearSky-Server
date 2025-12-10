@@ -202,44 +202,80 @@ export const getDerivativeDetails = async (req: Request, res: Response) => {
                 derivativeId
             })}`
         );
-        logger.debug(
-            `[MARKETPLACE] Get derivative details request ${JSON.stringify({
-                derivative_id: derivativeId
-            })}`
-        );
 
-        const derivative = await Derivative.findOne({ derivative_id: derivativeId }).lean();
+        // Check if it's a user derivative or platform derivative
+        const isUserDerivative = derivativeId.startsWith('uderiv_');
 
-        if (!derivative) {
+        if (isUserDerivative) {
+            // Handle user-created derivative
             logger.debug(
-                `[MARKETPLACE] Derivative not found ${JSON.stringify({
+                `[MARKETPLACE] Fetching user derivative ${JSON.stringify({
+                    user_derivative_id: derivativeId
+                })}`
+            );
+
+            const userDerivative = await UserDerivative.findOne({ user_derivative_id: derivativeId }).lean();
+
+            if (!userDerivative) {
+                logger.debug(`[MARKETPLACE] User derivative not found ${JSON.stringify({ user_derivative_id: derivativeId })}`);
+                return res.status(404).json({ success: false, message: 'User derivative not found.' });
+            }
+
+            // Get parent asset to show what it was created from
+            const parentAsset = await Asset.findOne({ asset_id: userDerivative.parent_asset_id }).lean();
+
+            logger.debug(
+                `[MARKETPLACE] User derivative details retrieved ${JSON.stringify({
+                    user_derivative_id: derivativeId,
+                    creator: userDerivative.creator_wallet,
+                    has_parent_asset: !!parentAsset
+                })}`
+            );
+
+            return res.status(200).json({
+                success: true,
+                data: {
+                    ...userDerivative,
+                    parent_asset: parentAsset,
+                    type: 'user_derivative',
+                },
+            });
+        } else {
+            // Handle platform derivative (DAILY/MONTHLY)
+            logger.debug(
+                `[MARKETPLACE] Fetching platform derivative ${JSON.stringify({
                     derivative_id: derivativeId
                 })}`
             );
-            return res.status(404).json({ success: false, message: 'Derivative not found.' });
+
+            const derivative = await Derivative.findOne({ derivative_id: derivativeId }).lean();
+
+            if (!derivative) {
+                logger.debug(`[MARKETPLACE] Platform derivative not found ${JSON.stringify({ derivative_id: derivativeId })}`);
+                return res.status(404).json({ success: false, message: 'Derivative not found.' });
+            }
+
+            // Fetch primitive data
+            const primitiveData = await AQIReading.find({
+                reading_id: { $in: derivative.parent_data_ids }
+            }).lean();
+
+            logger.debug(
+                `[MARKETPLACE] Platform derivative details retrieved ${JSON.stringify({
+                    derivative_id: derivativeId,
+                    primitive_data_count: primitiveData.length
+                })}`
+            );
+
+            return res.status(200).json({
+                success: true,
+                data: {
+                    ...derivative,
+                    primitive_data: primitiveData,
+                    type: 'platform_derivative',
+                },
+            });
         }
-
-        // Fetch primitive data
-        const primitiveData = await AQIReading.find({
-            reading_id: { $in: derivative.parent_data_ids }
-        }).lean();
-
-        logger.debug(
-            `[MARKETPLACE] Derivative details retrieved ${JSON.stringify({
-                derivative_id: derivativeId,
-                // derivative: derivative,
-                primitive_data_count: primitiveData.length,
-                // primitive_data: primitiveData
-            })}`
-        );
-
-        res.status(200).json({
-            success: true,
-            data: {
-                ...derivative,
-                primitive_data: primitiveData,
-            },
-        });
     } catch (error) {
         logger.error(
             `[MARKETPLACE] Failed to get derivative details: ${JSON.stringify(
@@ -1013,6 +1049,14 @@ export const listUserCreations = async (req: Request, res: Response) => {
     try {
         const { walletAddress } = req.params;
         const userDerivatives = await UserDerivative.find({ creator_wallet: walletAddress.toLowerCase() }).lean();
+
+        if (userDerivatives.length === 0) {
+            return res.status(200).json({
+                success: true,
+                data: [],
+                message: 'No derivatives found for this creator'
+            });
+        }
 
         res.status(200).json({
             success: true,
