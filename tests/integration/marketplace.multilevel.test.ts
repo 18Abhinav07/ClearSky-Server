@@ -41,6 +41,7 @@ describe('Multi-Level Marketplace Integration', () => {
             asset_id: 'parent_asset_1',
             owner_wallet: userWallet,
             derivative_id: 'platform_deriv_1',
+            primitive_data_ids: ['reading_1'],
             ip_id: '0xparentipid11111111111111111111111111111111',
             token_id: '101',
             license_token_id: '201',
@@ -48,7 +49,12 @@ describe('Multi-Level Marketplace Integration', () => {
             access_type: 'license',
             can_create_derivatives: true,
             purchase_price: 100,
-            purchase_tx_hash: '0xabc'
+            purchase_tx_hash: '0xabc',
+            metadata: {
+                derivative_type: 'DAILY',
+                content_hash: '0x7465737468617368000000000000000000000000000000000000000000000000',
+                ipfs_uri: 'ipfs://QmTestHash'
+            }
         });
         await asset.save();
         parentAssetId = asset.asset_id;

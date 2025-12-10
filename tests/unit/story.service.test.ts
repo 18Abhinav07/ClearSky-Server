@@ -46,18 +46,17 @@ describe('Story Service', () => {
       };
 
       // Mock the specific SDK method
-      mockStoryClient.ipAsset.registerDerivativeIp.mockResolvedValue(mockResponse);
+      (mockStoryClient.ipAsset.registerDerivativeIpAsset as jest.Mock).mockResolvedValue(mockResponse);
 
       // Act
       const result = await StoryService.registerDerivativeIp(request);
 
       // Assert
       expect(StoryClient.newClient).toHaveBeenCalled();
-      expect(mockStoryClient.ipAsset.registerDerivativeIp).toHaveBeenCalledWith({
+      expect(mockStoryClient.ipAsset.registerDerivativeIpAsset).toHaveBeenCalledWith({
         nft: {
           type: 'mint',
           spgNftContract: STORY_CONFIG.SPG_NFT_CONTRACT as Address,
-          mintTo: request.creatorWallet,
         },
         derivData: {
           parentIpIds: [request.parentIpId],
@@ -74,7 +73,7 @@ describe('Story Service', () => {
       expect(result).toEqual({
         childIpId: mockResponse.ipId,
         childTokenId: mockResponse.tokenId.toString(),
-        txHash: mockResponse.txHash,
+        txHash: mockResponse.txHash || '0x',
       });
     });
 
@@ -91,7 +90,7 @@ describe('Story Service', () => {
         };
 
         const errorMessage = 'SDK Error';
-        mockStoryClient.ipAsset.registerDerivativeIp.mockRejectedValue(new Error(errorMessage));
+        (mockStoryClient.ipAsset.registerDerivativeIpAsset as jest.Mock).mockRejectedValue(new Error(errorMessage));
 
         // Act & Assert
         await expect(StoryService.registerDerivativeIp(request)).rejects.toThrow(errorMessage);
