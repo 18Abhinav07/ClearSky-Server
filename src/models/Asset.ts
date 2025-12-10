@@ -19,7 +19,7 @@ export interface IAsset extends Document {
   platform_fee: number;
   purchased_at: Date;
   metadata: {
-    derivative_type: 'DAILY' | 'MONTHLY';
+    derivative_type: 'DAILY' | 'MONTHLY' | 'MODEL' | 'DATASET' | 'ANALYSIS' | 'VISUALIZATION' | 'REPORT' | 'APPLICATION' | 'CREATIVE' | 'OTHER';
     content_hash: string;
     ipfs_uri: string;
   };
@@ -110,7 +110,7 @@ const assetSchema = new Schema<IAsset>({
   metadata: {
     derivative_type: {
       type: String,
-      enum: ['DAILY', 'MONTHLY'],
+      enum: ['DAILY', 'MONTHLY', 'MODEL', 'DATASET', 'ANALYSIS', 'VISUALIZATION', 'REPORT', 'APPLICATION', 'CREATIVE', 'OTHER'],
       required: true,
     },
     content_hash: {

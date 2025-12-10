@@ -67,6 +67,7 @@ export const listDerivatives = async (req: Request, res: Response) => {
         const {
             is_minted,
             type,
+            creator,
             limit = '50',
             offset = '0',
             search
@@ -81,6 +82,28 @@ export const listDerivatives = async (req: Request, res: Response) => {
 
         if (type) {
             filter.type = type;
+        }
+
+        // Filter by creator (owner of the primitive data)
+        if (creator) {
+            const creatorAddress = (creator as string).toLowerCase();
+
+            // Find all reading_ids owned by this creator
+            const creatorReadings = await AQIReading.find({
+                owner_id: creatorAddress
+            }).select('reading_id').lean();
+
+            const creatorReadingIds = creatorReadings.map(r => r.reading_id);
+
+            // Only include derivatives that have parent_data_ids from this creator
+            filter.parent_data_ids = { $in: creatorReadingIds };
+
+            logger.debug(
+                `[MARKETPLACE] Filtering by creator ${JSON.stringify({
+                    creator: creatorAddress,
+                    reading_count: creatorReadingIds.length
+                })}`
+            );
         }
 
         logger.debug(
@@ -920,6 +943,7 @@ export const purchaseUserDerivative = async (req: Request, res: Response) => {
             asset_id: assetId,
             owner_wallet: buyerWallet.toLowerCase(),
             derivative_id: userDerivativeId, // Linking to the user derivative ID
+            primitive_data_ids: [], // User derivatives don't have primitive data IDs
             ip_id: userDerivative.child_ip_id,
             token_id: userDerivative.child_token_id, // This is the NFT of the derivative IP
             license_token_id: licenseTokenId,
@@ -928,6 +952,15 @@ export const purchaseUserDerivative = async (req: Request, res: Response) => {
             purchase_price: userDerivative.price,
             purchase_tx_hash: txHash,
             can_create_derivatives: true, // License grants right to create more derivatives
+            commercial_rev_share: userDerivative.creator_rev_share,
+            used_in_derivatives: [],
+            royalty_paid_to_original_owner: 0,
+            platform_fee: 0,
+            metadata: {
+                derivative_type: userDerivative.derivative_type as any, // Map to DAILY/MONTHLY
+                content_hash: userDerivative.ipfs_hash,
+                ipfs_uri: `ipfs://${userDerivative.ipfs_hash}`,
+            },
         });
         await asset.save();
         
