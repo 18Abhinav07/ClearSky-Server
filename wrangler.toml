@@ -1,0 +1,34 @@
+name = "clearsky-server"
+main = "dist/worker.js"
+compatibility_date = "2024-12-11"
+node_compat = true
+
+# Environment variables (add your secrets via: wrangler secret put <KEY>)
+[vars]
+NODE_ENV = "production"
+PORT = "3000"
+API_VERSION = "v1"
+LOG_LEVEL = "info"
+
+# Note: Add sensitive variables using:
+# wrangler secret put MONGODB_URI
+# wrangler secret put REDIS_HOST
+# wrangler secret put REDIS_PASSWORD
+# wrangler secret put JWT_SECRET
+# wrangler secret put JWT_REFRESH_SECRET
+# wrangler secret put PINATA_JWT
+# wrangler secret put TOGETHER_API_KEY
+# wrangler secret put STORY_PRIVATE_KEY
+# wrangler secret put PLATFORM_WALLET_PRIVATE_KEY
+
+# WARNING: This configuration will NOT work because:
+# 1. Cloudflare Workers don't support persistent MongoDB connections
+# 2. Redis (ioredis) requires persistent connections
+# 3. Cron jobs with node-cron won't work (use Workers cron triggers instead)
+# 4. CSV file parsing from filesystem won't work
+# 5. Many Node.js dependencies are incompatible with Workers runtime
+
+# Recommended alternatives:
+# - Deploy to Railway: railway up
+# - Deploy to Render: render.yaml
+# - Deploy to Fly.io: fly launch
