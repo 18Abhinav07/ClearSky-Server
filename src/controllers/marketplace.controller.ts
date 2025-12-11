@@ -68,12 +68,16 @@ export const listDerivatives = async (req: Request, res: Response) => {
             is_minted,
             type,
             creator,
+            city,
+            sensorType,
+            dateFrom,
+            dateTo,
             limit = '50',
             offset = '0',
             search
         } = req.query;
 
-        // Build filter query
+        // Build filter query for derivatives
         const filter: any = {};
 
         if (is_minted !== undefined) {
@@ -84,26 +88,82 @@ export const listDerivatives = async (req: Request, res: Response) => {
             filter.type = type;
         }
 
+        // Build filter for AQI readings (for advanced filtering)
+        const readingFilter: any = {};
+        let needsReadingFilter = false;
+
         // Filter by creator (owner of the primitive data)
         if (creator) {
-            const creatorAddress = (creator as string).toLowerCase();
+            readingFilter.owner_id = (creator as string).toLowerCase();
+            needsReadingFilter = true;
+        }
 
-            // Find all reading_ids owned by this creator
-            const creatorReadings = await AQIReading.find({
-                owner_id: creatorAddress
-            }).select('reading_id').lean();
+        // Filter by city
+        if (city) {
+            readingFilter['meta.location.city'] = new RegExp(city as string, 'i');
+            needsReadingFilter = true;
+        }
 
-            const creatorReadingIds = creatorReadings.map(r => r.reading_id);
+        // Filter by sensor type (check if sensor_data has this key)
+        if (sensorType) {
+            readingFilter[`sensor_data.${sensorType}`] = { $exists: true };
+            needsReadingFilter = true;
+        }
 
-            // Only include derivatives that have parent_data_ids from this creator
-            filter.parent_data_ids = { $in: creatorReadingIds };
+        // Filter by date range
+        if (dateFrom || dateTo) {
+            readingFilter.created_at = {};
+            if (dateFrom) {
+                readingFilter.created_at.$gte = new Date(dateFrom as string);
+            }
+            if (dateTo) {
+                readingFilter.created_at.$lte = new Date(dateTo as string);
+            }
+            needsReadingFilter = true;
+        }
 
+        // If we have any reading filters, query readings first
+        if (needsReadingFilter) {
             logger.debug(
-                `[MARKETPLACE] Filtering by creator ${JSON.stringify({
-                    creator: creatorAddress,
-                    reading_count: creatorReadingIds.length
+                `[MARKETPLACE] Filtering readings ${JSON.stringify({
+                    reading_filter: readingFilter
                 })}`
             );
+
+            const filteredReadings = await AQIReading.find(readingFilter)
+                .select('reading_id')
+                .lean();
+
+            const filteredReadingIds = filteredReadings.map(r => r.reading_id);
+
+            // Only include derivatives that have parent_data_ids from filtered readings
+            filter.parent_data_ids = { $in: filteredReadingIds };
+
+            logger.debug(
+                `[MARKETPLACE] Found filtered readings ${JSON.stringify({
+                    reading_count: filteredReadingIds.length,
+                    filters_applied: {
+                        creator: !!creator,
+                        city: !!city,
+                        sensorType: !!sensorType,
+                        dateRange: !!(dateFrom || dateTo)
+                    }
+                })}`
+            );
+
+            // If no readings match, return early
+            if (filteredReadingIds.length === 0) {
+                return res.status(200).json({
+                    success: true,
+                    data: [],
+                    message: 'No derivatives found matching the specified filters',
+                    pagination: {
+                        limit: parseInt(limit as string),
+                        offset: parseInt(offset as string),
+                        total: 0,
+                    },
+                });
+            }
         }
 
         logger.debug(
