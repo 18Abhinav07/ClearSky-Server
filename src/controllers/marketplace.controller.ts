@@ -692,12 +692,24 @@ export const bulkPurchaseDerivatives = async (req: Request, res: Response) => {
             }
         }
 
-        const successfulAssetIds = results.filter(r => r.success).map(r => r.asset_id);
+        const successfulAssetIds = results
+            .filter(r => r.success && r.asset_id)
+            .map(r => r.asset_id as string);
+
         if (successfulAssetIds.length > 0) {
-            await User.updateOne(
-                { walletAddress: buyerWallet.toLowerCase() },
-                { $push: { assets: { $each: successfulAssetIds } } },
-                { upsert: true }
+            let buyer = await User.findOne({ walletAddress: buyerWallet.toLowerCase() });
+            if (!buyer) {
+                buyer = new User({ walletAddress: buyerWallet.toLowerCase(), devices: [], assets: successfulAssetIds });
+            } else {
+                buyer.assets.push(...successfulAssetIds);
+            }
+            await buyer.save();
+
+            logger.debug(
+                `[MARKETPLACE:BULK_PURCHASE] Buyer user record updated ${JSON.stringify({
+                    buyer_wallet: buyerWallet,
+                    assets_added: successfulAssetIds.length
+                })}`
             );
         }
 
@@ -1059,12 +1071,21 @@ export const purchaseUserDerivative = async (req: Request, res: Response) => {
             },
         });
         await asset.save();
-        
+
         // 5. Update buyer's user record
-        await User.updateOne(
-            { walletAddress: buyerWallet.toLowerCase() },
-            { $push: { assets: assetId } },
-            { upsert: true }
+        let buyer = await User.findOne({ walletAddress: buyerWallet.toLowerCase() });
+        if (!buyer) {
+            buyer = new User({ walletAddress: buyerWallet.toLowerCase(), devices: [], assets: [assetId] });
+        } else {
+            buyer.assets.push(assetId);
+        }
+        await buyer.save();
+
+        logger.debug(
+            `[USER_DERIVATIVE:PURCHASE] Buyer user record updated ${JSON.stringify({
+                buyer_wallet: buyerWallet,
+                asset_id: assetId
+            })}`
         );
 
         logger.info(
