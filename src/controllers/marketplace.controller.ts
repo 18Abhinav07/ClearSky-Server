@@ -110,14 +110,14 @@ export const listDerivatives = async (req: Request, res: Response) => {
             needsReadingFilter = true;
         }
 
-        // Filter by date range
+        // Filter by date range (based on when sensor data was captured)
         if (dateFrom || dateTo) {
-            readingFilter.created_at = {};
+            readingFilter['batch_window.start'] = {};
             if (dateFrom) {
-                readingFilter.created_at.$gte = new Date(dateFrom as string);
+                readingFilter['batch_window.start'].$gte = new Date(dateFrom as string);
             }
             if (dateTo) {
-                readingFilter.created_at.$lte = new Date(dateTo as string);
+                readingFilter['batch_window.start'].$lte = new Date(dateTo as string);
             }
             needsReadingFilter = true;
         }
