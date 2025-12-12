@@ -1,6 +1,6 @@
 {
-  "version": "1.0.0",
-  "last_updated": "2024-12-05T00:00:00Z",
+  "version": "1.0.1",
+  "last_updated": "2025-12-12T00:00:00Z",
   "cities": [
     {
       "city_id": "delhi",
@@ -108,6 +108,180 @@
               "sensor_type": "PM2.5",
               "unit": "µg/m³",
               "description": "Particulate Matter 2.5"
+            }
+          ]
+        },
+        {
+          "station_id": "delhi_sri_aurobindo_marg_dpcc_10484",
+          "station_name": "Sri Aurobindo Marg, Delhi - DPCC",
+          "coordinates": {
+            "latitude": 28.5755,
+            "longitude": 77.2099
+          },
+          "owner": "Delhi Pollution Control Committee",
+          "provider": "CPCB",
+          "available_sensors": [
+            {
+              "sensor_type": "CO_mass",
+              "unit": "µg/m³",
+              "description": "Carbon Monoxide mass"
+            },
+            {
+              "sensor_type": "CO_ppb",
+              "unit": "ppb",
+              "description": "Carbon Monoxide"
+            },
+            {
+              "sensor_type": "NO_ppb",
+              "unit": "ppb",
+              "description": "Nitric Oxide"
+            },
+            {
+              "sensor_type": "NO2_ppb",
+              "unit": "ppb",
+              "description": "Nitrogen Dioxide"
+            },
+            {
+              "sensor_type": "NO2_mass",
+              "unit": "µg/m³",
+              "description": "Nitrogen Dioxide mass"
+            },
+            {
+              "sensor_type": "NOX_ppb",
+              "unit": "ppb",
+              "description": "Nitrogen Oxides"
+            },
+            {
+              "sensor_type": "O3_mass",
+              "unit": "µg/m³",
+              "description": "Ozone mass"
+            },
+            {
+              "sensor_type": "PM10",
+              "unit": "µg/m³",
+              "description": "Particulate Matter 10"
+            },
+            {
+              "sensor_type": "PM2.5",
+              "unit": "µg/m³",
+              "description": "Particulate Matter 2.5"
+            },
+            {
+              "sensor_type": "RH",
+              "unit": "%",
+              "description": "Relative Humidity"
+            },
+            {
+              "sensor_type": "SO2_ppb",
+              "unit": "ppb",
+              "description": "Sulfur Dioxide"
+            },
+            {
+              "sensor_type": "SO2_mass",
+              "unit": "µg/m³",
+              "description": "Sulfur Dioxide mass"
+            },
+            {
+              "sensor_type": "Temperature",
+              "unit": "°C",
+              "description": "Temperature"
+            },
+            {
+              "sensor_type": "Wind_Direction",
+              "unit": "degrees",
+              "description": "Wind Direction"
+            },
+            {
+              "sensor_type": "Wind_Speed",
+              "unit": "m/s",
+              "description": "Wind Speed"
+            }
+          ]
+        },
+        {
+          "station_id": "delhi_major_dhyan_chand_stadium_dpcc_6929",
+          "station_name": "Major Dhyan Chand National Stadium, Delhi - DPCC",
+          "coordinates": {
+            "latitude": 28.6075,
+            "longitude": 77.2357
+          },
+          "owner": "Delhi Pollution Control Committee",
+          "provider": "CPCB",
+          "available_sensors": [
+            {
+              "sensor_type": "CO_ppb",
+              "unit": "ppb",
+              "description": "Carbon Monoxide"
+            },
+            {
+              "sensor_type": "CO_mass",
+              "unit": "µg/m³",
+              "description": "Carbon Monoxide mass"
+            },
+            {
+              "sensor_type": "NO_ppb",
+              "unit": "ppb",
+              "description": "Nitric Oxide"
+            },
+            {
+              "sensor_type": "NO2_ppb",
+              "unit": "ppb",
+              "description": "Nitrogen Dioxide"
+            },
+            {
+              "sensor_type": "NO2_mass",
+              "unit": "µg/m³",
+              "description": "Nitrogen Dioxide mass"
+            },
+            {
+              "sensor_type": "NOX_ppb",
+              "unit": "ppb",
+              "description": "Nitrogen Oxides"
+            },
+            {
+              "sensor_type": "O3_mass",
+              "unit": "µg/m³",
+              "description": "Ozone mass"
+            },
+            {
+              "sensor_type": "PM10",
+              "unit": "µg/m³",
+              "description": "Particulate Matter 10"
+            },
+            {
+              "sensor_type": "PM2.5",
+              "unit": "µg/m³",
+              "description": "Particulate Matter 2.5"
+            },
+            {
+              "sensor_type": "RH",
+              "unit": "%",
+              "description": "Relative Humidity"
+            },
+            {
+              "sensor_type": "SO2_ppb",
+              "unit": "ppb",
+              "description": "Sulfur Dioxide"
+            },
+            {
+              "sensor_type": "SO2_mass",
+              "unit": "µg/m³",
+              "description": "Sulfur Dioxide mass"
+            },
+            {
+              "sensor_type": "Temperature",
+              "unit": "°C",
+              "description": "Temperature"
+            },
+            {
+              "sensor_type": "Wind_Direction",
+              "unit": "degrees",
+              "description": "Wind Direction"
+            },
+            {
+              "sensor_type": "Wind_Speed",
+              "unit": "m/s",
+              "description": "Wind Speed"
             }
           ]
         }
