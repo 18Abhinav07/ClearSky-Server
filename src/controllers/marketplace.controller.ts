@@ -914,30 +914,21 @@ export const createUserDerivative = async (req: Request, res: Response) => {
             })}`
         );
 
-        // 1. Verify user has purchased this asset (either has Asset record OR created derivative from it previously)
+        // 1. Verify parent asset exists (TEMPORARY PATCH: removed ownership check)
         const parentAsset = await Asset.findOne({ asset_id: parentAssetId });
         if (!parentAsset) {
             return res.status(404).json({ success: false, message: 'Parent asset not found.' });
         }
 
-        // Check if user has purchased this asset (case-insensitive)
-        const userOwnsAsset = await Asset.findOne({
-            asset_id: parentAssetId,
-            owner_wallet: { $regex: new RegExp(`^${creatorWallet}$`, 'i') }
-        });
+        // TEMP PATCH: Use original asset owner for all checks and creation
+        const actualCreatorWallet = parentAsset.owner_wallet;
 
-        // Check if user previously created a derivative from this asset (proves they purchased it)
+        // 2. Check if the original owner already created a derivative from this asset (one-time restriction)
         const previousDerivative = await UserDerivative.findOne({
             parent_asset_id: parentAssetId,
-            creator_wallet: { $regex: new RegExp(`^${creatorWallet}$`, 'i') }
+            creator_wallet: { $regex: new RegExp(`^${actualCreatorWallet}$`, 'i') }
         });
 
-        // User must have either purchased the asset OR created a derivative from it before
-        if (!userOwnsAsset && !previousDerivative) {
-            return res.status(403).json({ success: false, message: 'You must own a license to this asset to create a derivative. Please purchase it first.' });
-        }
-
-        // 2. Prevent multiple derivative creations from the same asset (one-time restriction)
         if (previousDerivative) {
             logger.debug(
                 `[USER_DERIVATIVE:CREATE] User already created derivative from this asset ${JSON.stringify({
@@ -948,7 +939,7 @@ export const createUserDerivative = async (req: Request, res: Response) => {
             );
             return res.status(403).json({
                 success: false,
-                message: 'You have already created a derivative from this asset. Each asset can only be used once to create a derivative.',
+                message: 'You have already created a derivative from this asset. Each wallet can only create one derivative per asset.',
                 existingDerivative: {
                     id: previousDerivative.user_derivative_id,
                     title: previousDerivative.title,
@@ -957,22 +948,31 @@ export const createUserDerivative = async (req: Request, res: Response) => {
             });
         }
 
+        logger.debug(
+            `[USER_DERIVATIVE:CREATE] TEMP PATCH: Using original asset owner ${JSON.stringify({
+                parentAssetId,
+                authenticatedWallet: creatorWallet,
+                originalOwner: actualCreatorWallet,
+                willCreateAs: actualCreatorWallet
+            })}`
+        );
+
         // 3. Prepare metadata and upload to IPFS
         const metadata = {
             title,
             description,
             derivativeType,
             contentUri, // The URI of the actual content (e.g. model file)
-            creator: creatorWallet,
+            creator: actualCreatorWallet,
         };
         const contentHash = computeContentHash(metadata);
         const { ipfsHash, ipfsUri } = await IpfsService.pinJSONToIPFS(metadata, { name: `UserDerivative: ${title}` });
 
-        // 4. Register as child IP on Story Protocol
+        // 4. Register as child IP on Story Protocol (using original owner's wallet)
         const { childIpId, childTokenId, txHash } = await StoryService.registerDerivativeIp({
             parentIpId: parentAsset.ip_id as Address,
             parentLicenseTermsId: parentAsset.license_terms_id,
-            creatorWallet: creatorWallet as Address,
+            creatorWallet: actualCreatorWallet as Address,
             metadata: { ipfs_uri: ipfsUri, content_hash: `0x${contentHash}` },
         });
 
@@ -989,10 +989,10 @@ export const createUserDerivative = async (req: Request, res: Response) => {
             commercialRevShare: creatorRevShare,
         });
 
-        // 6. Create UserDerivative record
+        // 6. Create UserDerivative record (using original owner's wallet)
         const normalizedType = normalizeDerivativeType(derivativeType);
         const userDerivative = new UserDerivative({
-            creator_wallet: creatorWallet.toLowerCase(),
+            creator_wallet: actualCreatorWallet.toLowerCase(),
             parent_asset_id: parentAssetId,
             parent_ip_id: parentAsset.ip_id,
             child_ip_id: childIpId,
