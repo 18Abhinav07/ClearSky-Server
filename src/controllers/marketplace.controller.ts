@@ -756,21 +756,41 @@ export const getUserAssets = async (req: Request, res: Response) => {
             })}`
         );
 
-        const assets = await Asset.find({ owner_wallet: walletAddress.toLowerCase() }).lean();
+        // Case-insensitive query to handle both old and new data formats
+        const assets = await Asset.find({
+            owner_wallet: { $regex: new RegExp(`^${walletAddress}$`, 'i') }
+        }).lean();
+
+        // For each asset, check if user has created a derivative from it
+        const assetsWithDerivativeStatus = await Promise.all(
+            assets.map(async (asset) => {
+                const derivative = await UserDerivative.findOne({
+                    parent_asset_id: asset.asset_id,
+                    creator_wallet: { $regex: new RegExp(`^${walletAddress}$`, 'i') }
+                });
+
+                return {
+                    ...asset,
+                    has_created_derivative: !!derivative,
+                    created_derivative_id: derivative?.user_derivative_id || null,
+                    created_derivative_title: derivative?.title || null
+                };
+            })
+        );
 
         logger.debug(
             `[MARKETPLACE] Found ${assets.length} assets for user ${JSON.stringify(
                 {
                     wallet_address: walletAddress,
                     asset_count: assets.length,
-                    assets: assets
+                    assets: assetsWithDerivativeStatus
                 }
             )}`
         );
 
         res.status(200).json({
             success: true,
-            data: assets,
+            data: assetsWithDerivativeStatus,
         });
     } catch (error) {
         logger.error(
@@ -821,28 +841,32 @@ export const downloadDerivative = async (req: Request, res: Response) => {
         }
 
         logger.debug(
-            `[MARKETPLACE:DOWNLOAD] Verifying license ownership ${JSON.stringify({
+            `[MARKETPLACE:DOWNLOAD] Verifying derivative has been purchased ${JSON.stringify({
                 derivative_id: derivativeId,
                 ip_id: derivative.ip_id,
                 wallet_address: walletAddress
             })}`
         );
 
-        const hasLicense = await StoryService.verifyLicenseOwnership(derivative.ip_id as `0x${string}`, walletAddress as `0x${string}`);
+        // Check if this derivative has been purchased by anyone (Asset record exists)
+        // Allowing download for any authenticated user if the asset was purchased
+        const assetExists = await Asset.findOne({
+            ip_id: derivative.ip_id
+        });
 
         logger.debug(
-            `[MARKETPLACE:DOWNLOAD] License verification result ${JSON.stringify(
+            `[MARKETPLACE:DOWNLOAD] Asset verification result ${JSON.stringify(
                 {
                     derivative_id: derivativeId,
                     ip_id: derivative.ip_id,
                     wallet_address: walletAddress,
-                    has_license: hasLicense
+                    asset_exists: !!assetExists
                 }
             )}`
         );
 
-        if (!hasLicense) {
-            return res.status(403).json({ success: false, message: 'You do not have a valid license to download this derivative.' });
+        if (!assetExists) {
+            return res.status(403).json({ success: false, message: 'This derivative has not been purchased yet.' });
         }
 
         logger.info(
@@ -890,20 +914,47 @@ export const createUserDerivative = async (req: Request, res: Response) => {
             })}`
         );
 
-        // 1. Verify user owns license to parent asset
+        // 1. Verify user has purchased this asset (either has Asset record OR created derivative from it previously)
         const parentAsset = await Asset.findOne({ asset_id: parentAssetId });
-        if (!parentAsset || parentAsset.owner_wallet !== creatorWallet.toLowerCase()) {
-            return res.status(403).json({ success: false, message: 'You must own a license to this asset to create a derivative.' });
+        if (!parentAsset) {
+            return res.status(404).json({ success: false, message: 'Parent asset not found.' });
         }
 
-        // 2. Verify license allows derivative creation
-        const canCreate = await StoryService.verifyLicenseOwnership(
-            parentAsset.ip_id as `0x${string}`,
-            creatorWallet as `0x${string}`
-        );
+        // Check if user has purchased this asset (case-insensitive)
+        const userOwnsAsset = await Asset.findOne({
+            asset_id: parentAssetId,
+            owner_wallet: { $regex: new RegExp(`^${creatorWallet}$`, 'i') }
+        });
 
-        if (!canCreate) {
-            return res.status(403).json({ success: false, message: 'Your license does not allow derivative creation, or ownership could not be verified.' });
+        // Check if user previously created a derivative from this asset (proves they purchased it)
+        const previousDerivative = await UserDerivative.findOne({
+            parent_asset_id: parentAssetId,
+            creator_wallet: { $regex: new RegExp(`^${creatorWallet}$`, 'i') }
+        });
+
+        // User must have either purchased the asset OR created a derivative from it before
+        if (!userOwnsAsset && !previousDerivative) {
+            return res.status(403).json({ success: false, message: 'You must own a license to this asset to create a derivative. Please purchase it first.' });
+        }
+
+        // 2. Prevent multiple derivative creations from the same asset (one-time restriction)
+        if (previousDerivative) {
+            logger.debug(
+                `[USER_DERIVATIVE:CREATE] User already created derivative from this asset ${JSON.stringify({
+                    parentAssetId,
+                    creatorWallet,
+                    existingDerivative: previousDerivative.user_derivative_id
+                })}`
+            );
+            return res.status(403).json({
+                success: false,
+                message: 'You have already created a derivative from this asset. Each asset can only be used once to create a derivative.',
+                existingDerivative: {
+                    id: previousDerivative.user_derivative_id,
+                    title: previousDerivative.title,
+                    createdAt: previousDerivative.createdAt
+                }
+            });
         }
 
         // 3. Prepare metadata and upload to IPFS
